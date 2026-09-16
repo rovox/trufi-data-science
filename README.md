@@ -15,6 +15,7 @@ transporte público.
 | 3 · Modelado (7.4) | ✅ done |
 | 4 · Evaluación (7.5) | ✅ done |
 | 5 · Despliegue (7.6) | ✅ done |
+| 6 · Conclusiones y recomendaciones (2.8) | ✅ done |
 
 Estrategia de organización en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -84,6 +85,16 @@ Reportes completos en [`reports/04_evaluation/README.md`](reports/04_evaluation/
 
 Reportes completos en [`reports/05_deployment/README.md`](reports/05_deployment/README.md).
 
+## Conclusiones y recomendaciones (2.8)
+
+Síntesis final del proyecto — responde al objetivo general y a cada
+objetivo específico citando su evidencia exacta en `reports/02_*` a
+`reports/05_*` (sin introducir hallazgos nuevos), y agrupa recomendaciones
+por tipo (ajustes metodológicos inmediatos, mejoras al modelado,
+aplicaciones futuras, y qué falta antes de un despliegue productivo real).
+
+Reporte completo en [`reports/06_conclusions/README.md`](reports/06_conclusions/README.md).
+
 ## Stack
 
 - Python ≥ 3.12, gestión con [`uv`](https://docs.astral.sh/uv/)
@@ -141,7 +152,8 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
 │   ├── 02_data_preparation/
 │   ├── 03_modeling/
 │   ├── 04_evaluation/
-│   └── 05_deployment/
+│   ├── 05_deployment/
+│   └── 06_conclusions/
 ├── notebooks/                # análisis exploratorio (vacío)
 ├── docs/                     # ARCHITECTURE.md, ROADMAP.md
 ├── pyproject.toml
