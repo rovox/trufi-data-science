@@ -1,0 +1,27 @@
+[project]
+name = "trufi-data-science"
+version = "0.1.0"
+description = "Trufi App route query analysis — Cochabamba Metropolitan Area"
+requires-python = ">=3.12"
+dependencies = [
+    "polars>=1.9",
+    "duckdb>=1.1",
+    "pyarrow>=17.0",
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "h3>=4.1",
+    "geopandas>=1.0",
+    "shapely>=2.0",
+    "matplotlib>=3.9",
+    "seaborn>=0.13",
+    "folium>=0.17",
+    "scikit-learn>=1.5",
+    "xgboost>=2.1",
+    "jupyter>=1.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+]
