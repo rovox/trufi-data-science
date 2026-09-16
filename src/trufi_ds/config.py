@@ -29,9 +29,21 @@ TRAIN_SET = DATA_PROCESSED / "train.parquet"
 TEST_SET = DATA_PROCESSED / "test.parquet"
 MANIFEST_PATH = DATA_PROCESSED / "manifest.json"
 
+# Models
+MODELS_DIR = PROJECT_ROOT / "models"
+
+# Modeling-stage feature tables (engineered from indicators_table)
+MODEL_FEATURES_TABLE = DATA_PROCESSED / "model_features.parquet"
+MODEL_TRAIN_SET = DATA_PROCESSED / "model_train.parquet"
+MODEL_TEST_SET = DATA_PROCESSED / "model_test.parquet"
+MODEL_METRICS_TABLE = DATA_PROCESSED / "model_metrics.parquet"
+MODEL_PREDICTIONS_TABLE = DATA_PROCESSED / "model_predictions.parquet"
+
 # Reports
 REPORTS_DIR = PROJECT_ROOT / "reports"
 PREP_REPORTS = REPORTS_DIR / "02_data_preparation"
+MODEL_REPORTS = REPORTS_DIR / "03_modeling"
+MODEL_FIGURES = MODEL_REPORTS / "figures"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GEOGRAPHIC PARAMETERS — Cochabamba Metropolitan Area
@@ -108,4 +120,51 @@ VALID_MUNICIPIOS = [
     "Villa Santivañez",
     "Villa José Quintín Mendoza",
     "externo",
+]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MODELING PARAMETERS (Section 7.4)
+# ─────────────────────────────────────────────────────────────────────────────
+RANDOM_SEED = 42
+
+# Target variable: weekly query volume originated in each H3 cell
+TARGET_COL = "n_queries_orig"
+
+# Reference point for "distance to center" (Plaza Principal 14 de Septiembre,
+# Cochabamba) — used as a territorial/centrality feature for H1 (periphery
+# vs. center demand gap).
+CITY_CENTER_LAT = -17.3935
+CITY_CENTER_LON = -66.1570
+
+# Rolling-window internal validation (mimics production retraining cadence)
+CV_WINDOW_MONTHS = 3
+CV_WINDOW_WEEKS = 13
+
+# Lag features (weeks) built per H3 cell, sorted chronologically
+LAG_WEEKS = [1, 4]
+
+# Territorial covariates: describe conditions of the cell (transit access,
+# typical trip pattern), filled with the cell's historical median on weeks
+# with zero origin queries (see 18_model_training.py::attach_territorial_features).
+TERRITORIAL_COLS = [
+    "dist_gtfs_mean_orig_m",
+    "pct_uncovered_orig",
+    "mean_trip_dist_m",
+    "pct_weekend_orig",
+    "pct_morning_rush_orig",
+    "pct_evening_rush_orig",
+]
+
+# Final feature set used by every model (Section 7.4.2) — deliberately
+# excludes same-week demand-side columns (n_users_orig, n_sessions_orig,
+# dest-side counts, n_queries_total, od_balance) that would leak the target.
+FEATURE_COLS = [
+    *TERRITORIAL_COLS,
+    "dist_center_km",
+    "week_sin",
+    "week_cos",
+    "week_idx",
+    "lag1_n_queries_orig",
+    "lag4_n_queries_orig",
+    "roll_mean4_n_queries_orig",
 ]
