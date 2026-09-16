@@ -25,3 +25,8 @@ dev = [
     "pytest>=8.3",
     "ruff>=0.6",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Stage-1 scripts are frozen reference outputs; legacy lints are tolerated.
+"src/01_audit_schema.py" = ["BLE001", "FURB192"]
+"src/08_h3_preview.py" = ["BLE001"]
