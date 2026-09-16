@@ -1,0 +1,177 @@
+# 7.5 Evaluación y Resultados — Trufi App Cochabamba
+
+Esta carpeta contiene los resultados de la fase de **Evaluación** (Sección
+7.5) del pipeline CRISP-DM, construida sobre los modelos y datos de la
+Sección 7.4 (`reports/03_modeling/`).
+
+## Cómo reproducir
+
+```bash
+uv run src/21_hypothesis_tests.py   # → 01_hypothesis_tests.md
+uv run src/22_results_analysis.py   # → 02_results_analysis.md
+uv run src/23_error_analysis.py     # → 03_error_analysis.md
+```
+
+O en un solo comando:
+```bash
+for i in 21 22 23; do uv run src/${i}_*.py; done
+```
+
+## Inventario de archivos
+
+| Archivo | Script | Contenido |
+|---------|--------|-----------|
+| `README.md` | — | Síntesis integrada de toda la fase (este archivo) |
+| `01_hypothesis_tests.md` | `21_hypothesis_tests.py` | Contraste H1 (periferia) y H2 (modelo vs. base), con verificación de robustez |
+| `02_results_analysis.md` | `22_results_analysis.py` | Métricas finales, demanda agregada, ranking espacial, gradiente centro-periferia |
+| `03_error_analysis.md` | `23_error_analysis.py` | Residuos por celda, hallazgo de semanas parciales, curvas de aprendizaje, estabilidad temporal |
+| `figures/` | los tres scripts | Figuras de apoyo |
+
+---
+
+## Cumplimiento de los 6 requisitos de la Guía UMSS (Sección 2.7.5)
+
+| # | Requisito | Dónde se cumple |
+|---|-----------|-------------------|
+| 1 | Definir métricas adecuadas | `02_results_analysis.md` §1 (ya justificado en `03_modeling/01_model_training.md` § 7.4.1-7.4.2) |
+| 2 | Presentar resultados por modelo | `02_results_analysis.md` §1 (detalle completo en `03_modeling/02_model_comparison.md`) |
+| 3 | Comparar desempeño y analizar errores | `01_hypothesis_tests.md` (H2), `03_error_analysis.md` §1-2 |
+| 4 | Revisar overfitting/underfitting | `03_error_analysis.md` §3 |
+| 5 | Interpretar desde el problema original | `02_results_analysis.md` §5, `01_hypothesis_tests.md` (H1) |
+| 6 | Seleccionar y justificar el modelo final | Esta sección (abajo) + `03_modeling/README.md` |
+
+---
+
+## Hallazgo principal de esta fase: dos semanas de test son parciales
+
+Antes de sintetizar resultados: `23_error_analysis.py` detectó que **2 de
+las 8 semanas del conjunto de prueba (2024-W18 y 2024-W23) contienen solo
+unas horas de datos, no una semana completa** — un artefacto de cobertura
+de exportación no señalado en la Sección 7.3.9. Esto infla el MAE agregado
+que se reportó en la Sección 7.4:
+
+| | MAE | RMSE | R² |
+|---|-----|------|-----|
+| Con las 8 semanas (como se reportó en 7.4) | 10.19 | 80.70 | 0.656 |
+| Excluyendo las 2 semanas parciales (6 semanas reales) | 5.91 | 52.87 | 0.889 |
+
+Las cifras de 7.4 se mantienen como el resultado principal citado (es la
+evaluación más conservadora y la que no requiere una decisión post-hoc de
+exclusión de datos), pero **5.91 MAE / R²=0.889 es la estimación más
+representativa** del desempeño del modelo en una semana calendario
+completa, y es consistente con los MAE de validación observados durante
+la selección de hiperparámetros (2.8-6.2, Sección 7.4.4) — a diferencia de
+los 10.19 originales, que resultan atípicos frente a ese historial una vez
+se entiende la causa. Detalle completo, incluyendo cómo se rastreó el
+artefacto hasta el dato crudo, en `03_error_analysis.md` §2.
+
+## 1-2. Métricas y resultados por modelo
+
+Métricas: **MAE**, **RMSE**, **R²** — justificación completa en
+`03_modeling/01_model_training.md` § 7.4.1-7.4.2 (objetivo fuertemente
+asimétrico, por eso se reportan las tres en vez de solo una).
+
+| Modelo | MAE (test) | RMSE (test) | R² (test) |
+|--------|--------------|---------------|------------|
+| **Random Forest** | **10.19** (5.91 sin semanas parciales) | **80.70** (52.87) | **0.656** (0.889) |
+| Base estacional (media móvil 4 sem.) | 11.05 | 85.70 | 0.613 |
+| Base ingenua (persistencia) | 11.30 | 91.90 | 0.555 |
+| XGBoost | 13.85 | 102.82 | 0.442 |
+| Lasso | 44.03 | 520.76 | −13.30 |
+| Ridge | 48.97 | 559.13 | −15.49 |
+
+Detalle completo (train + test, las seis alternativas) en
+`03_modeling/02_model_comparison.md`; hallazgo de inestabilidad de
+extrapolación de Ridge/Lasso documentado allí mismo.
+
+## 3. Comparación de desempeño y análisis de errores
+
+- **H2 (Diebold-Mariano + Wilcoxon pareado)**: el DM sobre la serie
+  semanal (n=8, poca potencia) no es significativo (p=0.50), pero el
+  Wilcoxon pareado por celda (n=1552, más potente) sí lo es (p=0.033) — y
+  crucialmente, **la ventaja de Random Forest está concentrada en las
+  celdas de mayor demanda** (gana por -3.72 en promedio en celdas con
+  ~42.9 consultas/semana; pierde por solo +0.71 en celdas casi sin
+  demanda). Detalle en `01_hypothesis_tests.md`.
+- **Residuos por celda**: sin sesgo agregado relevante; las celdas con
+  mayor error absoluto son, esperadamente, las de mayor volumen (más
+  margen absoluto para errar). Detalle en `03_error_analysis.md` §1.
+
+## 4. Overfitting / underfitting
+
+Curvas de aprendizaje (`03_error_analysis.md` §3): la brecha
+entrenamiento-validación crece de forma moderada y no monótona
+(+1.76 → +1.32 → +4.53 → +1.22 → +3.74) a medida que aumenta el tamaño de
+entrenamiento — consistente con un Random Forest de profundidad acotada
+(`max_depth=10`, Sección 7.4.4) que ajusta ruido de forma limitada, sin
+señal de varianza descontrolada. El MAE de entrenamiento se mantiene bajo
+(1.12 → 2.19) mientras el de validación oscila en un rango razonable
+(2.8-6.2) — sin la explosión que se vería en un modelo claramente
+sobreajustado.
+
+## 5. Interpretación desde el problema original
+
+**H1 confirma la hipótesis de partida**: las celdas periféricas (mayor
+distancia al centro) tienen una tasa de demanda no resuelta
+significativamente mayor que las celdas centrales (media 0.351 vs. 0.213,
+Mann-Whitney p=6.1×10⁻⁹ — ver `01_hypothesis_tests.md`). El gradiente
+espacial de demanda (Spearman ρ=-0.615 entre distancia al centro y
+demanda observada, `02_results_analysis.md` §4) refuerza el mismo patrón:
+la periferia combina **menor demanda absoluta** con **peor cobertura
+relativa**, coherente con zonas de expansión urbana con transporte formal
+insuficiente.
+
+**H2 matiza la Sección 7.4**: Random Forest no es uniformemente mejor que
+la línea base en todas las celdas, pero sí donde más importa
+operativamente — las celdas de mayor volumen. El modelo también preserva
+el ranking espacial de celdas (Spearman ρ=0.877 entre demanda observada y
+predicha, overlap 10/10 en el top-10 de celdas), lo que lo hace útil para
+priorización territorial incluso si su ventaja en error absoluto agregado
+es modesta.
+
+## 6. Selección y justificación del modelo final
+
+**Random Forest se mantiene como modelo final**, con la evidencia
+adicional de esta fase reforzando — no solo repitiendo — la decisión de
+la Sección 7.4:
+
+1. Mejor MAE de test entre los modelos ajustados, con o sin las semanas
+   parciales (10.19 u 5.91).
+2. Ventaja estadísticamente significativa sobre la línea base cuando se
+   mide con potencia suficiente (Wilcoxon pareado por celda), concentrada
+   exactamente en las celdas de mayor demanda — el segmento operativamente
+   más relevante.
+3. Curva de aprendizaje sin señal de sobreajuste descontrolado.
+4. Preserva el ranking espacial de celdas, no solo el nivel de demanda —
+   relevante para el uso previsto en la Sección 7.6 (priorización
+   territorial, no solo predicción puntual).
+
+**No se elige por ser el primero ni por una sola métrica aislada**: la
+Sección 7.4 ya descartó XGBoost pese a mejor MAE de validación cruzada
+(peor en test que la propia línea base), y esta fase confirma que incluso
+la ventaja de Random Forest debe reportarse con matices (no gana en la
+mayoría de celdas por conteo, solo donde el volumen lo justifica) en vez
+de como una victoria categórica.
+
+## Limitaciones de esta fase
+
+1. **Diebold-Mariano con poca potencia**: 8 semanas de test es muy poco
+   para ese test específico; se complementó con Wilcoxon pareado por
+   celda, pero la limitación de diseño (tamaño de test fijado en 7.3.9)
+   permanece.
+2. **Semanas parciales no detectadas antes**: el artefacto de 2024-W18 y
+   2024-W23 debió señalarse en la Sección 7.3.9; queda documentado aquí
+   como hallazgo tardío, con su impacto cuantificado.
+3. **Curva de aprendizaje limitada a 5 puntos**: por costo computacional
+   (cada punto reentrena un Random Forest completo); suficiente para
+   descartar sobreajuste severo, no para un diagnóstico fino.
+4. **H1 usa una partición por mediana**: simple y documentada, pero
+   arbitraria — no corresponde a un límite administrativo real de
+   "periferia".
+
+## Evidencia
+
+- **Scripts**: `src/21_hypothesis_tests.py`, `src/22_results_analysis.py`, `src/23_error_analysis.py`
+- **Reportes**: esta carpeta (`reports/04_evaluation/*.md`)
+- **Datos**: `data/processed/model_predictions.parquet`, `model_features.parquet`, `model_metrics.parquet`
+- **Figuras**: `reports/04_evaluation/figures/`
