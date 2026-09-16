@@ -18,6 +18,8 @@ dependencies = [
     "scikit-learn>=1.5",
     "xgboost>=2.1",
     "jupyter>=1.1",
+    "mobility-db-api>=0.5.1",
+    "requests>=2.34.2",
 ]
 
 [dependency-groups]
@@ -30,3 +32,8 @@ dev = [
 # Stage-1 scripts are frozen reference outputs; legacy lints are tolerated.
 "src/01_audit_schema.py" = ["BLE001", "FURB192"]
 "src/08_h3_preview.py" = ["BLE001"]
+# Stage-2 utility scripts (user-facing CLIs with intentional broad exception handling)
+"src/generate_manifest.py" = ["BLE001", "DTZ005"]
+"src/gtfs_download.py" = ["BLE001"]
+"src/run_update_pipeline.py" = ["DTZ005", "PLW1510"]
+"src/trufi_ds/io.py" = ["DTZ005"]
