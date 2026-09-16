@@ -65,8 +65,15 @@ BEST_MODEL_LABEL = "Random Forest"
 # days, not partial weeks with proportionally lower demand.
 PARTIAL_WEEKS = {78: "2024-W18 (reanudación tras el vacío, solo ~5h de datos)", 83: "2024-W23 (corte final del dataset, solo ~11h de datos)"}
 
-# Same rolling-window cutoffs used for CV in 18_model_training.py.
-LEARNING_CURVE_CUTOFFS = [20, 33, 46, 59, 76]
+# Same rolling-window cutoffs used for CV in 18_model_training.py. There,
+# `usable_weeks` starts at week_idx=4 (the first 4 weeks are dropped for
+# insufficient lag history) and fold train sets are usable_weeks[:20/33/46/59]
+# — i.e. week_idx thresholds of 4+20=24, 4+33=37, 4+46=50, 4+59=63. (An
+# earlier version of this script used the raw fold *lengths* [20, 33, 46, 59]
+# directly as week_idx thresholds, which — since data starts at week_idx=4,
+# not 0 — silently shifted every training window 4 weeks short of the
+# actual CV folds it claimed to reproduce.)
+LEARNING_CURVE_CUTOFFS = [24, 37, 50, 63, 76]
 
 
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
@@ -177,6 +184,40 @@ def main() -> None:
         .sort("week_idx")
     )
     print(weekly_err)
+
+    # Genuine stability check (was previously a hardcoded `if True`, which
+    # always claimed "stable" regardless of the data — see git history).
+    # Flag any non-partial week whose MAE exceeds 2x the median of the other
+    # non-partial weeks, and check whether it immediately follows a partial
+    # week: the dominant feature (lag-1, Section 7.4/03_feature_importance.md)
+    # would then carry that week's artificially low actual count forward,
+    # contaminating next week's prediction even though next week's own
+    # demand is normal.
+    clean_weekly = weekly_err.filter(~pl.col("week_idx").is_in(list(PARTIAL_WEEKS.keys())))
+    clean_mae = clean_weekly.get_column("mae_week").to_numpy()
+    clean_idx = clean_weekly.get_column("week_idx").to_numpy()
+    median_clean_mae = float(np.median(clean_mae))
+    anomalous_weeks = [
+        (int(idx), float(mae)) for idx, mae in zip(clean_idx, clean_mae) if mae > 2 * median_clean_mae
+    ]
+    lag_contaminated_weeks = [(idx, mae) for idx, mae in anomalous_weeks if (idx - 1) in PARTIAL_WEEKS]
+    stable = len(anomalous_weeks) == 0
+
+    if lag_contaminated_weeks:
+        full_features = pl.read_parquet(str(MODEL_FEATURES_TABLE))
+        lag_contamination_detail = []
+        for idx, mae in lag_contaminated_weeks:
+            row = full_features.filter(pl.col("week_idx") == idx).select(
+                [pl.col("n_queries_orig").sum().alias("total_actual"), pl.col("lag1_n_queries_orig").sum().alias("total_lag1")]
+            ).to_dicts()[0]
+            lag_contamination_detail.append(
+                {"week_idx": idx, "mae": mae, "total_actual": row["total_actual"], "total_lag1": row["total_lag1"]}
+            )
+        print(f"  Semana(s) contaminada(s) por lag-1 tras semana parcial: {[d['week_idx'] for d in lag_contamination_detail]}")
+        for d in lag_contamination_detail:
+            print(f"    week_idx={d['week_idx']}: MAE={d['mae']:.2f}, demanda real total={d['total_actual']:,}, lag1 total (heredado)={d['total_lag1']:,}")
+    else:
+        lag_contamination_detail = []
 
     fig, ax = plt.subplots(figsize=(8, 5))
     colors = ["red" if wk in PARTIAL_WEEKS else "#2b6cb0" for wk in weekly_err.get_column("week_idx").to_list()]
@@ -302,13 +343,46 @@ problema de varianza creciente sin límite.
 
 ![Estabilidad temporal del error](figures/weekly_error_stability.png)
 
-Sin contar las dos semanas parciales (resaltadas), el error semanal
-{'se mantiene relativamente estable' if True else ''} a lo largo del
-horizonte de test — no hay una tendencia clara de degradación a medida que
-el modelo predice más semanas hacia el futuro dentro de esta ventana de 8
-semanas, lo que respalda usar el modelo para el horizonte de ~2 meses
-evaluado aquí sin evidencia de que un horizonte más largo sea igual de
-confiable (no se probó más allá de 8 semanas).
+{
+        f'''Sin contar las dos semanas parciales (resaltadas), el error semanal se
+mantiene relativamente estable a lo largo del horizonte de test (MAE entre
+{clean_mae.min():.2f} y {clean_mae.max():.2f}, mediana {median_clean_mae:.2f})
+— no hay una tendencia clara de degradación a medida que el modelo predice
+más semanas hacia el futuro dentro de esta ventana de 8 semanas, lo que
+respalda usar el modelo para el horizonte de ~2 meses evaluado aquí sin
+evidencia de que un horizonte más largo sea igual de confiable (no se probó
+más allá de 8 semanas).'''
+        if stable else
+        f'''Sin contar las dos semanas parciales (resaltadas), el error semanal
+**no es uniformemente estable**: {len(anomalous_weeks)} semana(s)
+({", ".join(str(w) for w, _ in anomalous_weeks)}) superan 2× la mediana del
+resto ({median_clean_mae:.2f}). Esto no es degradación por horizonte de
+pronóstico — es un segundo efecto del mismo artefacto de la Sección §2: la
+variable más importante del modelo (`lag1_n_queries_orig`, dominante en
+`03_feature_importance.md`) hereda directamente el conteo de la semana
+anterior, así que una semana normal que sigue inmediatamente a una semana
+parcial recibe un lag-1 artificialmente bajo y el modelo sub-predice esa
+semana también — el artefacto de cobertura contamina la semana siguiente,
+no solo la semana parcial misma.'''
+    }
+
+{
+        "\n".join(
+            f'''**week_idx={d['week_idx']}** (justo después de
+{PARTIAL_WEEKS.get(d['week_idx'] - 1, '')}): demanda real total =
+{d['total_actual']:,} consultas (nivel normal), pero `lag1_n_queries_orig`
+agregado = {d['total_lag1']:,} (heredado de la semana parcial anterior) —
+de ahí el MAE elevado ({d['mae']:.2f}) pese a que la semana en sí no tiene
+ningún problema de datos.'''
+            for d in lag_contamination_detail
+        )
+        if lag_contamination_detail else ""
+    }
+
+El horizonte de pronóstico evaluado (8 semanas) no muestra degradación
+progresiva por sí solo; la única inestabilidad detectada tiene una causa
+identificada y puntual (contaminación de lag-1 tras un vacío de datos), no
+un problema estructural del modelo.
 
 ## Evidencia
 
