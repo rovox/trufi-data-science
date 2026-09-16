@@ -1,0 +1,33 @@
+# --- Python / uv ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.uv/
+
+# --- Ruff / tooling caches ---
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.ipython/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# --- Secrets ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- Local scratch ---
+tmp/
+scratch/
