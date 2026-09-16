@@ -62,18 +62,9 @@ from trufi_ds.config import (
     TERRITORIAL_COLS,
     TEST_WEEKS,
 )
+from trufi_ds.transforms import safe_expm1
 
 EARTH_RADIUS_M = 6_371_000
-
-# Ceiling for inverse-transformed predictions, applied in log space before
-# expm1. Ridge/Lasso occasionally extrapolate to large log-scale values on
-# early CV folds with little training history; without a ceiling, expm1
-# turns a mildly-off linear prediction into an astronomical one and a single
-# fold can dominate the average MAE. The cap sits well above the observed
-# maximum (3,663 queries/week) so it never affects a well-behaved
-# prediction — it only prevents runaway extrapolation from swamping the
-# comparison.
-LOG_TARGET_CAP = np.log1p(10_000)
 
 # Columns present in indicators_table that are *excluded* from the feature
 # set because they are simultaneous manifestations of the same-week demand
@@ -102,11 +93,6 @@ EXCLUDED_LEAKY_COLS = [
 # ─────────────────────────────────────────────────────────────────────────────
 # FEATURE ENGINEERING
 # ─────────────────────────────────────────────────────────────────────────────
-
-
-def safe_expm1(y_log: np.ndarray) -> np.ndarray:
-    """Inverse of log1p with an upper clip — see LOG_TARGET_CAP above."""
-    return np.expm1(np.clip(y_log, None, LOG_TARGET_CAP))
 
 
 def haversine_km(lat1, lon1, lat2, lon2) -> np.ndarray:
