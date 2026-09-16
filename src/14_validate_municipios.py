@@ -1,10 +1,22 @@
 #!/usr/bin/env python3
 """7.3.6 Municipality Validation — Cross-validate received municipality data.
 
-This script validates the `origin_municipio` and `dest_municipio` fields by:
-1. Reverse geocoding a sample using H3 cell centroids
-2. Comparing with administrative boundary polygons (if available)
-3. Analyzing consistency patterns
+`origin_municipio` and `dest_municipio` arrive as-is from the Trufi App
+backend — this pipeline does not geocode or re-derive them, and no
+administrative boundary polygon/shapefile is available in this repo to
+validate against. What this script actually checks is internal
+consistency of the values already present in the data:
+
+1. Known-list membership: is each value one of the documented metropolitan
+   municipalities (`VALID_MUNICIPIOS`)?
+2. H3 self-consistency: do queries landing in the same H3 cell agree on the
+   same municipio label (>=90% threshold), as a proxy for label coherence?
+3. Boundary anomalies: pairs of close origin/destination points (via the
+   query's own reported `distancia`, not a true geometric distance to a
+   municipal boundary) that carry different municipio labels.
+
+These are heuristics for flagging inconsistent or suspicious labels, not a
+ground-truth geocoding validation.
 
 Output:
 - data/processed/prep_06_validated.parquet (unchanged, adds validation flags)
@@ -303,12 +315,29 @@ Some anomalies are expected at actual boundaries.
 | `is_valid_orig_municipio` | Origin municipality in known valid list |
 | `is_valid_dest_municipio` | Destination municipality in known valid list |
 
+## Origen de los datos y alcance de esta validación
+
+`origin_municipio` y `dest_municipio` llegan tal cual del backend de Trufi
+App — este pipeline **no** los geocodifica ni los re-deriva a partir de
+coordenadas, y no existe en este repositorio ningún polígono/shapefile de
+límites administrativos contra el cual comparar. Lo que sigue son
+heurísticas de **consistencia interna** sobre los valores ya presentes en
+los datos, no una verificación contra un ground truth geométrico.
+
 ## Validation Methodology
 
 1. **Distribution analysis**: Check for unexpected municipality values
-2. **Known list validation**: Compare against documented metropolitan municipalities
-3. **H3 consistency**: Verify spatial coherence within hexagonal cells
-4. **Boundary check**: Identify close points with different municipality labels
+2. **Known list validation**: verifica que cada valor pertenezca a la lista
+   documentada de municipios metropolitanos (`VALID_MUNICIPIOS`) — es una
+   comprobación de membresía en lista, no una validación geográfica.
+3. **H3 consistency**: ¿las consultas que caen en la misma celda H3
+   coinciden en la misma etiqueta de municipio (umbral ≥90%)? Es un proxy
+   de coherencia de etiqueta, no una confirmación de que la etiqueta sea
+   correcta.
+4. **Boundary check**: identifica pares origen/destino cercanos (usando la
+   columna `distancia` reportada por la propia consulta, no una distancia
+   geométrica real a un límite municipal) con etiquetas de municipio
+   distintas.
 
 ## Conclusions
 
