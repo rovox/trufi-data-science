@@ -21,6 +21,8 @@ dependencies = [
     "jupyter>=1.1",
     "mobility-db-api>=0.5.1",
     "requests>=2.34.2",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.53.0",
 ]
 
 [dependency-groups]
