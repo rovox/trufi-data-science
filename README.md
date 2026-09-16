@@ -14,7 +14,7 @@ transporte público.
 | 2 · Data preparation (7.3) | ✅ done |
 | 3 · Modelado (7.4) | ✅ done |
 | 4 · Evaluación (7.5) | ✅ done |
-| 5 · Despliegue (7.6) | ➡️ próximo |
+| 5 · Despliegue (7.6) | ✅ done |
 
 Estrategia de organización en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -63,11 +63,32 @@ Reportes completos en [`reports/03_modeling/README.md`](reports/03_modeling/READ
 
 Reportes completos en [`reports/04_evaluation/README.md`](reports/04_evaluation/README.md).
 
+## Resumen de hallazgos (Stage 5 — Despliegue, 7.6)
+
+- **Prototipo real y ejecutable**: `src/trufi_ds/api.py` (FastAPI) sirve
+  predicciones de demanda por celda vía `GET /predict?cell=...`, no solo un
+  diagrama de arquitectura en papel.
+- **Umbrales de monitoreo derivados de datos reales**: alerta de MAE
+  semanal > 11.64 (media + 2σ de las semanas de test limpias) y piso de
+  completitud de datos < 10,041 consultas/semana (30% de la mediana
+  reciente) — este último existe porque la Sección 7.5 encontró
+  exactamente el problema que previene (semanas parciales no detectadas).
+- **Cadencia**: actualización GTFS semanal (ya implementada en
+  `run_update_pipeline.py`), reentrenamiento trimestral (alineado con la
+  ventana de validación cruzada de 13 semanas de la Sección 7.4).
+- **Limitación operativa real, no hipotética**: al probar el prototipo se
+  confirmó que la última semana del dataset (2024-W23) es la misma semana
+  parcial de la Sección 7.5, por lo que la primera predicción en vivo
+  heredaría un `lag1` artificialmente bajo — documentado con mitigación
+  propuesta.
+
+Reportes completos en [`reports/05_deployment/README.md`](reports/05_deployment/README.md).
+
 ## Stack
 
 - Python ≥ 3.12, gestión con [`uv`](https://docs.astral.sh/uv/)
 - `polars`, `duckdb`, `pyarrow` (procesamiento) · `h3`, `geopandas`, `shapely` (espacial)
-- `scikit-learn`, `xgboost`, `shap` (modelado) · `pytest`, `ruff` (dev)
+- `scikit-learn`, `xgboost`, `shap` (modelado) · `fastapi`, `uvicorn` (despliegue) · `pytest`, `ruff` (dev)
 - Datos versionados con **Git LFS** (`data/**`)
 
 ## Cómo reproducir
@@ -87,6 +108,15 @@ for i in 18 19 20; do uv run src/${i}_*.py; done
 
 # Stage 4 — Evaluación (7.5)
 for i in 21 22 23; do uv run src/${i}_*.py; done
+
+# Stage 5 — Despliegue (7.6)
+for i in 24 25; do uv run src/${i}_*.py; done
+```
+
+Para levantar el prototipo de predicción (opcional):
+```bash
+uv run uvicorn trufi_ds.api:app --reload --port 8000
+curl "http://127.0.0.1:8000/predict?cell=888b2c8ae5fffff"
 ```
 
 Cada script escribe su reporte en la carpeta `reports/` correspondiente (o su
@@ -104,11 +134,14 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
 │   └── _archive/             #   archivo zip original
 ├── models/                   # modelos entrenados, *.pkl (ver nota LFS abajo)
 ├── src/                      # scripts por tarea (NN_*)
+│   └── trufi_ds/
+│       └── api.py            # servicio de predicción (FastAPI, Sección 7.6)
 ├── reports/
 │   ├── 01_data_understanding/
 │   ├── 02_data_preparation/
 │   ├── 03_modeling/
-│   └── 04_evaluation/
+│   ├── 04_evaluation/
+│   └── 05_deployment/
 ├── notebooks/                # análisis exploratorio (vacío)
 ├── docs/                     # ARCHITECTURE.md, ROADMAP.md
 ├── pyproject.toml
@@ -123,15 +156,14 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
   fuente MDB).
 - Todo `data/**` se versiona con **Git LFS**. Para clonar y materializar los
   archivos: `git lfs pull`.
-- `models/**` está marcado para Git LFS en `.gitattributes`, pero los
-  archivos actuales (`models/*.pkl`, `data/processed/model_*.parquet`) se
-  commitearon como blobs de git planos — una desviación temporal y
-  documentada (ver el commit `774bc19`) porque `lfs.github.com` era
-  inalcanzable desde la sesión que los generó. `git status` los mostrará
-  como "modified" por esta discrepancia entre `.gitattributes` y el
-  contenido real — es un artefacto de comparación del filtro LFS, no una
-  corrupción de datos. Pendiente migrar de vuelta a LFS cuando corresponda
-  (`git lfs migrate import` o regenerar y volver a commitear normalmente).
+- `models/**` está marcado para Git LFS en `.gitattributes`. Los modelos
+  grandes (`random_forest.pkl` ~36MB, `xgboost.pkl`, `ridge.pkl`) ya están
+  en LFS propiamente (migrados en el commit `db64fe5`, tras un bloqueo de
+  red temporal documentado en `774bc19`). `lasso.pkl` (~2KB) y los
+  `data/processed/model_*.parquet` (todos <3MB) quedaron como blobs de git
+  planos — lo suficientemente pequeños como para no justificar la
+  migración inmediata, aunque no coincide estrictamente con
+  `.gitattributes`.
 
 > ⚠️ Plan gratuito de GitHub LFS: 1 GB storage / 1 GB bandwidth mensual.
 > El dataset ocupa ~525 MB y crecerá en `processed/`; revisa la política en

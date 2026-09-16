@@ -46,6 +46,8 @@ MODEL_REPORTS = REPORTS_DIR / "03_modeling"
 MODEL_FIGURES = MODEL_REPORTS / "figures"
 EVAL_REPORTS = REPORTS_DIR / "04_evaluation"
 EVAL_FIGURES = EVAL_REPORTS / "figures"
+DEPLOY_REPORTS = REPORTS_DIR / "05_deployment"
+CONCLUSIONS_REPORTS = REPORTS_DIR / "06_conclusions"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GEOGRAPHIC PARAMETERS — Cochabamba Metropolitan Area
