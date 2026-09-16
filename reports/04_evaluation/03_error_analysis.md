@@ -74,16 +74,16 @@ que sea comparable con los demás puntos):
 
 | Corte de entrenamiento | n filas train | MAE train | MAE validación | Brecha |
 |---------------------------|------------------|--------------|--------------------|--------|
-| week_idx < 20 | 24,832 | 1.12 | 2.87 | +1.76 |
-| week_idx < 33 | 45,008 | 1.48 | 2.81 | +1.32 |
-| week_idx < 46 | 65,184 | 1.65 | 6.18 | +4.53 |
-| week_idx < 59 | 85,360 | 1.87 | 3.09 | +1.22 |
+| week_idx < 24 | 31,040 | 1.26 | 3.22 | +1.96 |
+| week_idx < 37 | 51,216 | 1.52 | 3.17 | +1.65 |
+| week_idx < 50 | 71,392 | 1.73 | 3.44 | +1.71 |
+| week_idx < 63 | 91,568 | 1.91 | 4.49 | +2.57 |
 | week_idx < 76 | 111,744 | 2.19 | 5.93 | +3.74 |
 
 ![Curva de aprendizaje](figures/learning_curve.png)
 
 **Lectura**: la brecha train-validación aumenta a medida que crece el
-conjunto de entrenamiento (+1.76 → +3.74). Un MAE de
+conjunto de entrenamiento (+1.96 → +3.74). Un MAE de
 entrenamiento consistentemente bajo junto con un MAE de validación varias
 veces mayor es la firma esperada de un modelo de árboles con esta
 profundidad (`max_depth=10`, Sección 7.4.4): ajusta el ruido de
@@ -107,12 +107,28 @@ problema de varianza creciente sin límite.
 ![Estabilidad temporal del error](figures/weekly_error_stability.png)
 
 Sin contar las dos semanas parciales (resaltadas), el error semanal
-se mantiene relativamente estable a lo largo del
-horizonte de test — no hay una tendencia clara de degradación a medida que
-el modelo predice más semanas hacia el futuro dentro de esta ventana de 8
-semanas, lo que respalda usar el modelo para el horizonte de ~2 meses
-evaluado aquí sin evidencia de que un horizonte más largo sea igual de
-confiable (no se probó más allá de 8 semanas).
+**no es uniformemente estable**: 1 semana(s)
+(79) superan 2× la mediana del
+resto (4.54). Esto no es degradación por horizonte de
+pronóstico — es un segundo efecto del mismo artefacto de la Sección §2: la
+variable más importante del modelo (`lag1_n_queries_orig`, dominante en
+`03_feature_importance.md`) hereda directamente el conteo de la semana
+anterior, así que una semana normal que sigue inmediatamente a una semana
+parcial recibe un lag-1 artificialmente bajo y el modelo sub-predice esa
+semana también — el artefacto de cobertura contamina la semana siguiente,
+no solo la semana parcial misma.
+
+**week_idx=79** (justo después de
+2024-W18 (reanudación tras el vacío, solo ~5h de datos)): demanda real total =
+41,656 consultas (nivel normal), pero `lag1_n_queries_orig`
+agregado = 909 (heredado de la semana parcial anterior) —
+de ahí el MAE elevado (11.38) pese a que la semana en sí no tiene
+ningún problema de datos.
+
+El horizonte de pronóstico evaluado (8 semanas) no muestra degradación
+progresiva por sí solo; la única inestabilidad detectada tiene una causa
+identificada y puntual (contaminación de lag-1 tras un vacío de datos), no
+un problema estructural del modelo.
 
 ## Evidencia
 

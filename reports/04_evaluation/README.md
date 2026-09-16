@@ -100,14 +100,23 @@ extrapolación de Ridge/Lasso documentado allí mismo.
 ## 4. Overfitting / underfitting
 
 Curvas de aprendizaje (`03_error_analysis.md` §3): la brecha
-entrenamiento-validación crece de forma moderada y no monótona
-(+1.76 → +1.32 → +4.53 → +1.22 → +3.74) a medida que aumenta el tamaño de
+entrenamiento-validación aumenta de forma moderada
+(+1.96 → +1.65 → +1.71 → +2.57 → +3.74) a medida que crece el tamaño de
 entrenamiento — consistente con un Random Forest de profundidad acotada
 (`max_depth=10`, Sección 7.4.4) que ajusta ruido de forma limitada, sin
 señal de varianza descontrolada. El MAE de entrenamiento se mantiene bajo
-(1.12 → 2.19) mientras el de validación oscila en un rango razonable
-(2.8-6.2) — sin la explosión que se vería en un modelo claramente
+(1.26 → 2.19) mientras el de validación oscila en un rango razonable
+(3.2-5.9) — sin la explosión que se vería en un modelo claramente
 sobreajustado.
+
+**Estabilidad temporal del error** (`03_error_analysis.md` §4): excluyendo
+las dos semanas parciales, el error semanal es estable en 5 de las 6
+semanas restantes (MAE 3.95-6.79); la excepción es la semana inmediatamente
+posterior a la semana parcial 2024-W18 (MAE=11.38, más del doble de la
+mediana), causada por contaminación de la variable de rezago (`lag1`):
+esa semana hereda el conteo artificialmente bajo de la semana parcial
+anterior como su "semana previa", no por degradación del horizonte de
+pronóstico.
 
 ## 5. Interpretación desde el problema original
 
@@ -161,7 +170,11 @@ de como una victoria categórica.
    permanece.
 2. **Semanas parciales no detectadas antes**: el artefacto de 2024-W18 y
    2024-W23 debió señalarse en la Sección 7.3.9; queda documentado aquí
-   como hallazgo tardío, con su impacto cuantificado.
+   como hallazgo tardío, con su impacto cuantificado. Su efecto no se limita
+   a esas dos semanas: la semana siguiente a 2024-W18 (2024-W19) también
+   sale afectada porque hereda un `lag1_n_queries_orig` artificialmente bajo
+   (detalle en `03_error_analysis.md` §4) — el vacío de cobertura contamina
+   la predicción de la semana posterior, no solo la propia semana parcial.
 3. **Curva de aprendizaje limitada a 5 puntos**: por costo computacional
    (cada punto reentrena un Random Forest completo); suficiente para
    descartar sobreajuste severo, no para un diagnóstico fino.
