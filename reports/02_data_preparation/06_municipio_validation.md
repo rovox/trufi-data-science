@@ -114,12 +114,29 @@ Some anomalies are expected at actual boundaries.
 | `is_valid_orig_municipio` | Origin municipality in known valid list |
 | `is_valid_dest_municipio` | Destination municipality in known valid list |
 
+## Origen de los datos y alcance de esta validación
+
+`origin_municipio` y `dest_municipio` llegan tal cual del backend de Trufi
+App — este pipeline **no** los geocodifica ni los re-deriva a partir de
+coordenadas, y no existe en este repositorio ningún polígono/shapefile de
+límites administrativos contra el cual comparar. Lo que sigue son
+heurísticas de **consistencia interna** sobre los valores ya presentes en
+los datos, no una verificación contra un ground truth geométrico.
+
 ## Validation Methodology
 
 1. **Distribution analysis**: Check for unexpected municipality values
-2. **Known list validation**: Compare against documented metropolitan municipalities
-3. **H3 consistency**: Verify spatial coherence within hexagonal cells
-4. **Boundary check**: Identify close points with different municipality labels
+2. **Known list validation**: verifica que cada valor pertenezca a la lista
+   documentada de municipios metropolitanos (`VALID_MUNICIPIOS`) — es una
+   comprobación de membresía en lista, no una validación geográfica.
+3. **H3 consistency**: ¿las consultas que caen en la misma celda H3
+   coinciden en la misma etiqueta de municipio (umbral ≥90%)? Es un proxy
+   de coherencia de etiqueta, no una confirmación de que la etiqueta sea
+   correcta.
+4. **Boundary check**: identifica pares origen/destino cercanos (usando la
+   columna `distancia` reportada por la propia consulta, no una distancia
+   geométrica real a un límite municipal) con etiquetas de municipio
+   distintas.
 
 ## Conclusions
 

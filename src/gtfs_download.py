@@ -15,6 +15,16 @@ Usage:
 
     # Or pass token directly
     uv run src/gtfs_download.py --token "your-refresh-token"
+
+Manual step required after download:
+    This script saves into `data/raw/gtfs_download/` (the mobility-db-api
+    library manages its own dataset-versioned subfolder layout there), but
+    the rest of the pipeline (13_gtfs_coverage.py and everything downstream)
+    reads from `data/raw/gtfs/` (`trufi_ds.config.GTFS_DIR`). After a fresh
+    download, copy/symlink the relevant GTFS .txt files from the versioned
+    subfolder under `gtfs_download/` into `gtfs/` before re-running the
+    pipeline — this is not automated here because the library's folder name
+    changes per dataset version and shouldn't be guessed at.
 """
 
 from __future__ import annotations

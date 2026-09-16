@@ -73,6 +73,57 @@ semanas sin historia suficiente para las variables de rezago).
 binaria de celdas con/sin brecha de cobertura GTFS — mencionada en la
 propuesta original pero no es el problema principal de esta fase.
 
+### De un target individual a un target agregado — por qué cambió
+
+La Fase 1 (`reports/01_data_understanding/README.md`) concluyó que
+`userID` es un identificador **a nivel de instalación** (no de sesión
+efímera), y en ese momento se documentó — en `docs/ROADMAP.md` y en el
+propio README de Fase 1 — que un **target a nivel individual** (predecir
+comportamiento/recidiva por usuario) quedaba **confirmado como viable**.
+Esa idea nunca se implementó: la Fase 7.4 optó, en cambio, por un target
+**agregado por celda H3 y semana** (`n_queries_orig`). Motivos concretos:
+
+1. **Alinea con la pregunta de investigación**: el objetivo del proyecto es
+   entender cómo la demanda varía según las *condiciones territoriales*
+   (cobertura GTFS, centralidad, patrones temporales de la celda) — una
+   pregunta sobre el territorio, no sobre el comportamiento de usuarios
+   individuales.
+2. **La señal por usuario es dispersa**: la sesionización (Sección 7.3.3)
+   mostró que ~60% de las sesiones son de una sola consulta y la mediana de
+   consultas por sesión es 1 — hay poca repetición individual capturable
+   como señal de "recidiva" con series cortas por usuario.
+3. **No requiere emparejar/deduplicar viajes repetidos**: `n_queries_orig`
+   cuenta **consultas crudas**, no "viajes únicos". Por diseño, cada
+   consulta suma al target tal cual llega, sin necesidad de decidir si dos
+   consultas del mismo usuario son "el mismo viaje" o dos viajes distintos.
+   Esto es relevante frente a una crítica recibida sobre una definición de
+   target anterior (`mismo userID + mismo par de municipios dentro de 24
+   horas`, con el riesgo de falsos positivos que señala esa crítica): **esa
+   definición no llegó a implementarse en este repositorio** — ni en
+   código, ni en ningún reporte, ni en el historial de git — por lo que no
+   hay nada que "mantener" de ella. Es coherente con la idea de target
+   individual mencionada en el punto anterior, pero el pivote hacia un
+   target agregado por celda-semana la volvió innecesaria: al no
+   deduplicar viajes, tampoco hace falta resolver el problema de qué cuenta
+   como "mismo origen-destino" (par de municipios vs. tolerancia espacial
+   H3), que es exactamente el problema que señala esa crítica.
+4. **La única deduplicación real en el pipeline** es (a) duplicados exactos
+   `userID+ts` descartados en 7.3.1 (104 filas, ver
+   `reports/02_data_preparation/01_filter_flow.md`), y (b) la
+   sesionización por ventana de 30 minutos de 7.3.3 (agrupa por `userID` +
+   brecha de tiempo, **sin** componente espacial ni de municipio). Ninguna
+   de las dos usa pares de municipios ni ventanas de 24 horas.
+
+**Línea futura (no implementada)**: si en una fase posterior se necesitara
+un target o feature de "viajes repetidos" (p. ej. para estimar demanda de
+*viajes únicos* en vez de consultas totales, o para un target individual
+de recidiva), la definición debería usar tolerancia espacial real —
+celda H3 de origen **y** destino dentro de una distancia/tiempo
+configurables — en vez de igualdad de par de municipios, exactamente como
+sugiere la crítica recibida: dos consultas con el mismo par de municipios
+pero orígenes/destinos a varios kilómetros de distancia dentro de la
+misma celda municipal no son el mismo viaje.
+
 ## 7.4.2 Selección de algoritmos
 
 | Modelo | Familia | Rol | Justificación |
