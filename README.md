@@ -11,11 +11,10 @@ transporte público.
 |---|---|
 | 0 · Ingesta (`data/raw/`, GTFS) | ✅ done |
 | 1 · Data understanding (auditoría → H3) | ✅ done |
-| 2 · Data preparation | ➡️ próximo |
-| 3 · Features / agregación | ❌ pendiente |
-| 4 · Modelado y validación | ❌ pendiente |
+| 2 · Data preparation (7.3) | ✅ done |
+| 3 · Modelado (7.4) | ✅ done |
+| 4 · Evaluación y despliegue (7.5–7.6) | ➡️ próximo |
 
-Detalle del próximo stage en [`docs/ROADMAP.md`](docs/ROADMAP.md).
 Estrategia de organización en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Resumen de hallazgos (Stage 1)
@@ -28,29 +27,47 @@ Estrategia de organización en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 Reportes completos en [`reports/01_data_understanding/README.md`](reports/01_data_understanding/README.md).
 
+## Resumen de hallazgos (Stage 3 — Modelado, 7.4)
+
+- Panel de modelado: **124.160 observaciones** (1.552 celdas × 84 semanas,
+  grilla completa; ausencia = 0 consultas, no dato faltante).
+- Cuatro modelos comparados con validación por ventanas deslizantes
+  (nunca k-fold aleatorio): Ridge, Lasso, Random Forest, XGBoost.
+- **Modelo final: Random Forest** — MAE test = 10.19 consultas/semana
+  (R² = 0.656), supera a la línea base estacional (MAE 11.05) y a XGBoost
+  (MAE 13.85, peor que la línea base).
+- Hallazgo relevante: Ridge/Lasso extrapolan de forma inestable en escala
+  log1p sobre la tendencia de crecimiento — motivo documentado, no un error
+  de implementación (detalle en `reports/03_modeling/02_model_comparison.md`).
+
+Reportes completos en [`reports/03_modeling/README.md`](reports/03_modeling/README.md).
+
 ## Stack
 
 - Python ≥ 3.12, gestión con [`uv`](https://docs.astral.sh/uv/)
 - `polars`, `duckdb`, `pyarrow` (procesamiento) · `h3`, `geopandas`, `shapely` (espacial)
-- `scikit-learn`, `xgboost` (modelado) · `pytest`, `ruff` (dev)
+- `scikit-learn`, `xgboost`, `shap` (modelado) · `pytest`, `ruff` (dev)
 - Datos versionados con **Git LFS** (`data/**`)
 
 ## Cómo reproducir
 
 ```bash
 uv sync                 # instala dependencias desde uv.lock
-uv run src/01_audit_schema.py
-uv run src/02_consolidate.py
-uv run src/03_quality.py
-uv run src/04_validate_haversine.py
-uv run src/05_user_analysis.py
-uv run src/06_temporal_coverage.py
-uv run src/07_spatial.py
-uv run src/08_h3_preview.py
+git lfs pull             # materializa data/** y models/** (ver §Datos)
+
+# Stage 1 — Data understanding
+for i in 01 02 03 04 05 06 07 08; do uv run src/${i}_*.py; done
+
+# Stage 2 — Data preparation (7.3)
+for i in 09 10 11 12 13 14 15 16 17; do uv run src/${i}_*.py; done
+
+# Stage 3 — Modelado (7.4)
+for i in 18 19 20; do uv run src/${i}_*.py; done
 ```
 
-Cada script escribe su reporte en `reports/01_data_understanding/` (o su
-dataset en `data/interim/`). Requiere los datos en `data/` (ver §Datos).
+Cada script escribe su reporte en la carpeta `reports/` correspondiente (o su
+dataset en `data/interim/` / `data/processed/`). Requiere los datos en
+`data/` (ver §Datos).
 
 ## Estructura del repo
 
@@ -61,9 +78,12 @@ dataset en `data/interim/`). Requiere los datos en `data/` (ver §Datos).
 │   ├── processed/            #   (resultados de preparation)
 │   ├── external/             #   GTFS MDB
 │   └── _archive/             #   archivo zip original
+├── models/                   # modelos entrenados (Git LFS), *.pkl
 ├── src/                      # scripts por tarea (NN_*)
 ├── reports/
-│   └── 01_data_understanding/
+│   ├── 01_data_understanding/
+│   ├── 02_data_preparation/
+│   └── 03_modeling/
 ├── notebooks/                # análisis exploratorio (vacío)
 ├── docs/                     # ARCHITECTURE.md, ROADMAP.md
 ├── pyproject.toml

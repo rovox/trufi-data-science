@@ -29,7 +29,13 @@ import shap
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from trufi_ds.config import FEATURE_COLS, MODEL_FIGURES, MODEL_REPORTS, MODEL_TRAIN_SET, MODELS_DIR
+from trufi_ds.config import (
+    FEATURE_COLS,
+    MODEL_FIGURES,
+    MODEL_REPORTS,
+    MODEL_TRAIN_SET,
+    MODELS_DIR,
+)
 
 FEATURE_LABELS_ES = {
     "dist_gtfs_mean_orig_m": "Dist. media a ruta GTFS",
