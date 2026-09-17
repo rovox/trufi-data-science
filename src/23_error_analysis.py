@@ -48,6 +48,7 @@ from trufi_ds.config import (
     FEATURE_COLS,
     MODEL_FEATURES_TABLE,
     MODEL_PREDICTIONS_TABLE,
+    PARTIAL_WEEKS,
     RANDOM_SEED,
     TARGET_COL,
 )
@@ -56,14 +57,14 @@ from trufi_ds.transforms import safe_expm1
 BEST_MODEL = "random_forest"
 BEST_MODEL_LABEL = "Random Forest"
 
-# Identified in 22_results_analysis.py: weekly aggregate demand crashes to
-# ~1-3% of a normal week for these two test weeks. Traced to the raw data
-# (data/processed/prep_queries_clean.parquet): W18 only has records from
-# 2024-05-05 18:28 to 23:59 (a few hours, right after the 7-week outage
-# ended mid-week) and W23 only has records from 2024-06-03 00:04 to 11:01
-# (the dataset's final cutoff, right-censored mid-week). Both are partial
-# days, not partial weeks with proportionally lower demand.
-PARTIAL_WEEKS = {78: "2024-W18 (reanudación tras el vacío, solo ~5h de datos)", 83: "2024-W23 (corte final del dataset, solo ~11h de datos)"}
+# PARTIAL_WEEKS now lives in trufi_ds.config so that this script and
+# 26_ranking_metrics.py share one definition. Identified here originally:
+# weekly aggregate demand crashes to ~1-3% of a normal week for these two
+# test weeks. Traced to the raw data (prep_queries_clean.parquet): W18 only
+# has records from 2024-05-05 18:28 to 23:59 (a few hours, right after the
+# 7-week outage ended mid-week) and W23 only from 2024-06-03 00:04 to 11:01
+# (the dataset's final cutoff). Both are partial days, not partial weeks
+# with proportionally lower demand.
 
 # Same rolling-window cutoffs used for CV in 18_model_training.py. There,
 # `usable_weeks` starts at week_idx=4 (the first 4 weeks are dropped for

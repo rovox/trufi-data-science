@@ -10,11 +10,13 @@ Sección 7.4 (`reports/03_modeling/`).
 uv run src/21_hypothesis_tests.py   # → 01_hypothesis_tests.md
 uv run src/22_results_analysis.py   # → 02_results_analysis.md
 uv run src/23_error_analysis.py     # → 03_error_analysis.md
+uv run src/26_ranking_metrics.py    # → 04_ranking_metrics.md
+uv run src/28_ranking_explainer.py  # → figures/ranking_explainer.png
 ```
 
 O en un solo comando:
 ```bash
-for i in 21 22 23; do uv run src/${i}_*.py; done
+for i in 21 22 23 26 28; do uv run src/${i}_*.py; done
 ```
 
 ## Inventario de archivos
@@ -25,7 +27,9 @@ for i in 21 22 23; do uv run src/${i}_*.py; done
 | `01_hypothesis_tests.md` | `21_hypothesis_tests.py` | Contraste H1 (periferia) y H2 (modelo vs. base), con verificación de robustez |
 | `02_results_analysis.md` | `22_results_analysis.py` | Métricas finales, demanda agregada, ranking espacial, gradiente centro-periferia |
 | `03_error_analysis.md` | `23_error_analysis.py` | Residuos por celda, hallazgo de semanas parciales, curvas de aprendizaje, estabilidad temporal |
-| `figures/` | los tres scripts | Figuras de apoyo |
+| `04_ranking_metrics.md` | `26_ranking_metrics.py` | Métricas de ordenamiento (recall de volumen@K, NDCG@K, τ-b) con criterio preinscrito: ¿sirve el modelo para priorizar? |
+| `figures/ranking_explainer.png` | `28_ranking_explainer.py` | Explicación visual de la métrica de priorización: qué mide, cómo se calcula y qué concluyó |
+| `figures/` | los scripts de la fase | Figuras de apoyo |
 
 ---
 
@@ -151,9 +155,11 @@ la Sección 7.4:
    exactamente en las celdas de mayor demanda — el segmento operativamente
    más relevante.
 3. Curva de aprendizaje sin señal de sobreajuste descontrolado.
-4. Preserva el ranking espacial de celdas, no solo el nivel de demanda —
-   relevante para el uso previsto en la Sección 7.6 (priorización
-   territorial, no solo predicción puntual).
+4. Preserva el ranking espacial de celdas (ρ = 0.877 sobre la demanda media
+   del período de test). **Pero esto no lo distingue de las líneas base**:
+   la Sección 7.5.5 midió el ordenamiento semana a semana y contra
+   competencia, y la media móvil de 4 semanas ordena igual o mejor. El
+   ranking no es un argumento a favor del modelo.
 
 **No se elige por ser el primero ni por una sola métrica aislada**: la
 Sección 7.4 ya descartó XGBoost pese a mejor MAE de validación cruzada
@@ -161,6 +167,51 @@ Sección 7.4 ya descartó XGBoost pese a mejor MAE de validación cruzada
 la ventaja de Random Forest debe reportarse con matices (no gana en la
 mayoría de celdas por conteo, solo donde el volumen lo justifica) en vez
 de como una victoria categórica.
+
+## 7.5.5 ¿Sirve el modelo para priorizar? — criterio preinscrito, refutado
+
+Detalle completo en `04_ranking_metrics.md`.
+
+Si el modelo no gana por precisión de valor, el argumento que quedaba era el
+operativo: *aunque no acierte el valor, ordena bien las celdas*. Esta sección
+lo puso a prueba con un criterio **declarado antes de ver los resultados**:
+el modelo sirve para priorizar si ordena mejor que la media móvil de 4
+semanas.
+
+**El criterio no se cumple.** Promedios sobre las 6 semanas completas de test:
+
+| Método | vRecall@20 | NDCG@20 | τ-b |
+|---|---|---|---|
+| **Base: media móvil 4 sem.** | **0.996** | **0.999** | **0.853** |
+| Random Forest | 0.995 | 0.996 | 0.850 |
+| XGBoost | 0.993 | 0.997 | 0.843 |
+| Base: persistencia (t−1) | 0.983 | 0.994 | 0.800 |
+| Ranking aleatorio (piso) | 0.022 | 0.104 | 0.001 |
+
+Random Forest no supera a la media móvil en **ninguna** de las 6 semanas para
+recall de volumen, NDCG ni precision@20. Ningún corte rescata la comparación:
+ni el estrato de demanda media (ρ 0.957 vs 0.958) ni el ranking de cambios
+semana a semana (0.458 vs 0.514, también a favor de la base).
+
+![Cómo funciona la métrica](figures/ranking_explainer.png)
+
+**Qué significa**: hay señal real —todos los métodos están muy por encima del
+azar (0.02)— pero la demanda es tan persistente (Gini 0.934) que ordenar
+celdas es una tarea que resuelve una media móvil. Para esta decisión no se
+justifica un modelo complejo.
+
+Este resultado **no debilita la monografía, la fortalece**: se obtuvo con un
+criterio declarado de antemano y una comparación que podía salir en contra, que
+es justamente lo que distingue un hallazgo de una racionalización. La
+contribución del trabajo está en el pipeline reproducible, la caracterización
+territorial y el diagnóstico de cobertura (H1) — no en la superioridad de un
+estimador. El producto de decisión derivado (top-20 de celdas a mapear) vive en
+`reports/05_deployment/03_priority_cells.md` y funciona con cualquiera de los
+estimadores.
+
+**Alcance de la refutación**: vale para horizonte de 1 semana. A horizontes
+mayores la media móvil envejece y el modelo podría mostrar ventaja; esa prueba
+no se hizo y queda declarada como pendiente, no como ventaja supuesta.
 
 ## Limitaciones de esta fase
 

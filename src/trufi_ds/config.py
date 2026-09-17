@@ -172,3 +172,25 @@ FEATURE_COLS = [
     "lag4_n_queries_orig",
     "roll_mean4_n_queries_orig",
 ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EVALUATION PARAMETERS (Section 7.5)
+# ─────────────────────────────────────────────────────────────────────────────
+# Test weeks that are single-day fragments rather than full weeks, traced to
+# the raw export in 23_error_analysis.py: week_idx 78 resumes mid-week right
+# after the 7-week outage (~5h of records) and week_idx 83 is the dataset's
+# right-censored final cutoff (~11h). They inflate every aggregate error
+# metric, so results are reported both with and without them.
+PARTIAL_WEEKS = {
+    78: "2024-W18 (reanudación tras el vacío, solo ~5h de datos)",
+    83: "2024-W23 (corte final del dataset, solo ~11h de datos)",
+}
+
+# Cut-offs for the ranking metrics that evaluate the model as a
+# prioritization tool (Section 7.5.5): "if I can map K cells, which K?"
+RANKING_K_VALUES = [5, 10, 20, 50]
+
+# Draws used to average the random-ranking floor those metrics are compared
+# against. A single shuffle is noisy; the floor has to be stable to be a
+# meaningful reference.
+RANKING_RANDOM_DRAWS = 200

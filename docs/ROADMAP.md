@@ -19,8 +19,8 @@ sigue CRISP-DM y se alinea con las secciones exigidas por la guía UMSS.
 | 1 · Comprensión de los datos | 7.2 | `01`–`08` | `reports/01_data_understanding/` | ✅ |
 | 2 · Preparación de los datos | 7.3 | `09`–`17` | `reports/02_data_preparation/` | ✅ |
 | 3 · Modelado | 7.4 | `18`–`20` | `reports/03_modeling/` | ✅ |
-| 4 · Evaluación y resultados | 7.5 | `21`–`23` | `reports/04_evaluation/` | ✅ |
-| 5 · Despliegue | 7.6 | `24`–`25` + `trufi_ds/api.py` | `reports/05_deployment/` | ✅ |
+| 4 · Evaluación y resultados | 7.5 | `21`–`23`, `26`, `28` | `reports/04_evaluation/` | ✅ |
+| 5 · Despliegue | 7.6 | `24`–`25`, `27` + `trufi_ds/api.py` | `reports/05_deployment/` | ✅ |
 | 6 · Conclusiones y recomendaciones | 2.8 | — | `reports/06_conclusions/` | ✅ |
 
 ---
@@ -170,6 +170,8 @@ proyecto y diagnosticar los errores.
 | `21_hypothesis_tests.py` | Contraste de H1 y H2 con verificación de robustez | **H1 confirmada** · **H2 matizada** (ver abajo) |
 | `22_results_analysis.py` | Métricas finales, demanda agregada, ranking espacial, gradiente centro-periferia | Serie semanal agregada que destapó el hallazgo principal |
 | `23_error_analysis.py` | Residuos por celda, curvas de aprendizaje, estabilidad temporal | Sin sobreajuste descontrolado |
+| `26_ranking_metrics.py` | Métricas de ordenamiento con criterio preinscrito | **Criterio refutado** (ver abajo) |
+| `28_ranking_explainer.py` | Figura explicativa de la métrica de priorización | `figures/ranking_explainer.png` |
 
 **H1 (periferia)**: las celdas periféricas tienen una tasa de demanda no
 resuelta significativamente mayor que las centrales (Mann-Whitney,
@@ -206,7 +208,27 @@ exactamente las adyacentes a ese vacío y al final del dataset. La Sección
 7.3.9 afirmaba que el vacío caía en el entrenamiento; corregido eso, ambas
 observaciones encajan.
 
-**Salidas**: `reports/04_evaluation/` (+ 5 figuras).
+### Hallazgo: el modelo tampoco aporta para priorizar (7.5.5)
+
+Ante la crítica "¿para qué sirve el modelo si la mejora es modesta?", se puso a
+prueba el argumento operativo —*ordena bien las celdas aunque no acierte el
+valor*— con un criterio **declarado antes de ver los resultados**: el modelo
+sirve para priorizar si ordena mejor que la media móvil de 4 semanas.
+
+**No se cumple.** Random Forest no supera a la media móvil en ninguna de las 6
+semanas completas (vRecall@20 0,995 vs 0,996; NDCG@20 0,996 vs 0,999; τ-b 0,850
+vs 0,853), y ningún corte lo rescata: ni el estrato de demanda media ni el
+ranking de cambios semana a semana. Todos los métodos están muy por encima del
+azar (0,02), así que hay señal real — pero la demanda es tan persistente
+(Gini 0,934) que una media móvil basta.
+
+Es un resultado legítimo y defendible precisamente porque el criterio era
+previo y la comparación podía salir en contra. Acota dónde está la contribución
+del trabajo: el pipeline reproducible, la caracterización territorial y el
+diagnóstico de cobertura, no la superioridad de un estimador. La refutación
+vale para horizonte de 1 semana; a horizontes mayores no se probó.
+
+**Salidas**: `reports/04_evaluation/` (+ 7 figuras).
 
 ---
 
@@ -218,7 +240,17 @@ observaciones encajan.
 |---|---|
 | `24_deployment_architecture.py` | Arquitectura de la capa analítica y contrato de la API |
 | `25_monitoring_plan.py` | Plan de monitoreo y reentrenamiento con umbrales derivados de datos reales |
-| `src/trufi_ds/api.py` | **Prototipo ejecutable** (FastAPI): `GET /predict?cell=…` |
+| `27_priority_cells.py` | Regla de decisión (demanda × no cobertura) y top-20 de celdas a mapear |
+| `src/trufi_ds/api.py` | **Prototipo ejecutable** (FastAPI): `GET /predict?cell=…`, `GET /cells/top` |
+
+- **Producto de decisión**: el top-20 de celdas prioritarias concentra el 70,5%
+  de la demanda no resuelta estimada. Las celdas prioritarias **no** son las de
+  mayor demanda: las de demanda alta ya están cubiertas al 100%, así que
+  priorizar por demanda bruta llevaría a mapear justo donde no hace falta.
+  Por eso `/cells/top` ordena por demanda no resuelta, no por demanda.
+- La lista apenas depende del estimador (18/20 celdas en común entre Random
+  Forest y la media móvil), coherente con el hallazgo de 7.5.5: el valor está
+  en cruzar demanda con cobertura, no en el modelo que estima la demanda.
 
 - **Umbrales de monitoreo**: alerta si el MAE semanal supera **11,64**
   (media + 2σ de las semanas de test limpias); alerta de completitud si entran
@@ -283,6 +315,7 @@ for i in 09 10 11 12 13 14 15 16 17; do uv run src/${i}_*.py; done # 7.3
 for i in 18 19 20; do uv run src/${i}_*.py; done                   # 7.4
 for i in 21 22 23; do uv run src/${i}_*.py; done                   # 7.5
 for i in 24 25; do uv run src/${i}_*.py; done                      # 7.6
+for i in 26 27 28; do uv run src/${i}_*.py; done                   # 7.5.5 y 7.6.3
 ```
 
 Cada script escribe su reporte en la carpeta `reports/` de su etapa y sus

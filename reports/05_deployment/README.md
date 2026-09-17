@@ -10,6 +10,7 @@ Esta carpeta contiene los resultados de la fase de **Despliegue** (Sección
 ```bash
 uv run src/24_deployment_architecture.py   # → 01_deployment_architecture.md
 uv run src/25_monitoring_plan.py           # → 02_monitoring_plan.md
+uv run src/27_priority_cells.py            # → 03_priority_cells.md
 ```
 
 Para levantar el prototipo de servicio (opcional, no requerido para
@@ -17,7 +18,17 @@ regenerar los reportes):
 ```bash
 uv run uvicorn trufi_ds.api:app --reload --port 8000
 curl "http://127.0.0.1:8000/predict?cell=888b2c8ae5fffff"
+curl "http://127.0.0.1:8000/cells/top?n=20"   # celdas prioritarias
 ```
+
+### Por qué `/cells/top` ordena por demanda no resuelta y no por demanda
+
+Ordenar por demanda bruta devuelve las cinco celdas más consultadas del área
+metropolitana, **todas con tasa de no cobertura 0,0**: ya están mapeadas, así
+que intervenirlas no aportaría nada. Cruzar la demanda con la brecha de
+cobertura es lo que convierte el ranking en una decisión accionable. El
+parámetro `rank_by=demand` conserva el comportamiento anterior para
+comparación.
 
 ## Inventario de archivos
 
@@ -26,6 +37,7 @@ curl "http://127.0.0.1:8000/predict?cell=888b2c8ae5fffff"
 | `README.md` | — | Síntesis integrada de toda la fase (este archivo) |
 | `01_deployment_architecture.md` | `24_deployment_architecture.py` | Casos de uso, arquitectura (diagrama Mermaid), prototipo de API con ejemplos reales |
 | `02_monitoring_plan.md` | `25_monitoring_plan.py` | Umbrales de monitoreo derivados de datos reales, cadencia de actualización y reentrenamiento |
+| `03_priority_cells.md` | `27_priority_cells.py` | Regla de decisión (demanda × no cobertura), top-20 de celdas a mapear y sensibilidad al estimador |
 
 El servicio de predicción en sí vive en `src/trufi_ds/api.py` (no en esta
 carpeta de reportes) — es código de producción, no un artefacto de reporte.
