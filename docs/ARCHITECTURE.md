@@ -25,10 +25,12 @@ código debe cumplir esto, no el revés.
 ## 2. Pipeline por etapas
 
 ```
- 0 ingesta ──▶ 1 understanding ──▶ 2 preparation ──▶ 3 modelado ──▶ 4 evaluación ──▶ 5 despliegue
- raw csv/gtfs   ✅ 01..08          ✅ 09..17         ✅ 18..20      ❌ 21..23        ❌ 24..25
-                   (7.2)              (7.3)            (7.4)          (7.5)            (7.6)
+ 0 ingesta ──▶ 1 understanding ──▶ 2 preparation ──▶ 3 modelado ──▶ 4 evaluación ──▶ 5 despliegue ──▶ 6 conclusiones
+ raw csv/gtfs   ✅ 01..08          ✅ 09..17         ✅ 18..20      ✅ 21..23        ✅ 24..25         ✅
+                   (7.2)              (7.3)            (7.4)          (7.5)            (7.6)             (2.8)
 ```
+
+**Todas las etapas del pipeline están completas.**
 
 La numeración de etapas del repo se mapea a las secciones de la guía UMSS. El
 detalle de qué hizo cada script y con qué resultado está en `docs/ROADMAP.md`.
@@ -39,8 +41,9 @@ detalle de qué hizo cada script y con qué resultado está en `docs/ROADMAP.md`
 | 1 · Understanding | 7.2 | `data/raw/*.csv` | `data/interim/queries.parquet/`, `data/interim/h3_*.parquet`, `reports/01_data_understanding/` | ✅ |
 | 2 · Preparation | 7.3 | interim | `data/processed/` (limpio, validado, agregado a celda×semana) | ✅ |
 | 3 · Modelado | 7.4 | `data/processed/indicators_table.parquet` | `models/*.pkl`, `data/processed/model_*.parquet`, `reports/03_modeling/` | ✅ |
-| 4 · Evaluación | 7.5 | predicciones + modelos | `reports/04_evaluation/` | ❌ |
-| 5 · Despliegue | 7.6 | modelo final | `reports/05_deployment/` | ❌ |
+| 4 · Evaluación | 7.5 | `model_predictions.parquet` + modelos | `reports/04_evaluation/` | ✅ |
+| 5 · Despliegue | 7.6 | modelo final | `src/trufi_ds/api.py`, `reports/05_deployment/` | ✅ |
+| 6 · Conclusiones | 2.8 | reportes de 7.2–7.6 | `reports/06_conclusions/` | ✅ |
 
 **Nota sobre la etapa "features"**: el plan original contemplaba una etapa 3 de
 features separada. En la práctica la ingeniería de variables quedó repartida
@@ -84,6 +87,7 @@ src/
     ├── config.py         # paths, bbox, H3, umbrales, semilla, features — único lugar
     ├── io.py             # schemas declarados, lectores/escritores, write_manifest
     ├── transforms.py     # transformación del target (log1p / expm1 con techo)
+    ├── api.py            # prototipo FastAPI de predicción (Sección 7.6)
     └── stages/           # paquetes creados pero vacíos (solo docstrings)
 ```
 
@@ -126,17 +130,30 @@ directa. `stages/` quedó como envoltorio vacío: o se puebla, o se borra.
 ## 5. Gestión de datos (Git + LFS)
 
 - `data/**` y `models/**` se declaran para Git LFS en `.gitattributes`.
-- **Excepción activa**: los artefactos de la etapa 3 (`data/processed/model_*.parquet`
-  y `models/*.pkl`, ~40 MB) están commiteados como **blobs de git normales**, no
-  como punteros LFS. Motivo: el entorno de desarrollo remoto tiene bloqueado
-  `lfs.github.com` por política de egress, lo que impide subir objetos LFS. Fue
-  una decisión consciente para no bloquear la entrega.
-  **Pendiente**: migrarlos de vuelta a LFS (`git lfs migrate import` sobre esas
-  rutas, o regenerar y volver a añadir con LFS operativo) para no arrastrar ese
-  peso en cada clon.
-- Como `.gitattributes` sigue marcando esas rutas como `filter=lfs`, un
-  `git add` posterior con LFS funcionando las convertirá a punteros
-  automáticamente.
+- **Estado inconsistente conocido**: los artefactos de modelado quedaron
+  repartidos entre los dos mecanismos, porque se commitearon desde entornos con
+  distinto acceso a LFS:
+
+  | Ruta | Cómo está almacenada |
+  |---|---|
+  | `models/ridge.pkl`, `random_forest.pkl`, `xgboost.pkl` | punteros LFS |
+  | `models/lasso.pkl` | blob normal (~2 KB) |
+  | `data/processed/model_*.parquet` | blobs normales (~3,5 MB) |
+
+  El motivo del desvío: un entorno de desarrollo remoto tiene bloqueado
+  `lfs.github.com` por política de egress, lo que impide subir objetos LFS; ahí
+  se optó por commitear blobs normales antes que bloquear la entrega.
+
+  **Consecuencia a verificar**: si los objetos LFS de esos tres modelos nunca se
+  subieron al servidor, un clon nuevo obtendrá punteros rotos. Comprobar con
+  `git lfs fsck` / `git lfs pull` desde un entorno con acceso.
+
+  **Pendiente**: unificar el criterio — o todo por LFS (`git lfs migrate import`
+  sobre `models/**` y `data/processed/model_*.parquet`), o excluir los modelos
+  del versionado y regenerarlos con `uv run src/18_model_training.py`, que es
+  reproducible por semilla fija.
+- Como `.gitattributes` marca esas rutas como `filter=lfs`, un `git add`
+  posterior con LFS operativo las convertirá a punteros automáticamente.
 - **Cuidado con el plan gratuito de GitHub**: 1 GB storage / 1 GB bandwidth/mes.
   Con ~525 MB ya se usa la mitad del storage. Política:
   1. No meter datasets intermedios redundantes (borrar y regenerar en vez de
@@ -187,9 +204,11 @@ Ordenados por lo que más duele hoy:
    (y `pytest` una vez exista).
 3. **Resolver `trufi_ds/stages/`** — poblarlo o eliminarlo; hoy son paquetes
    vacíos que sugieren una estructura que no existe.
-4. **Migrar los artefactos de 7.4 de vuelta a LFS** cuando el entorno lo
-   permita (§5).
-5. **Integrar a `main`** las etapas 2 y 3.
+4. **Unificar el almacenamiento de artefactos** (§5): hoy conviven punteros LFS
+   y blobs normales en `models/`, y hay que verificar que los objetos LFS
+   realmente se subieron.
+5. **Integrar a `main`** las etapas 2 a 6, que viven en
+   `claude/laughing-rubin-ih0aud`.
 
 Para el detalle de qué se ejecutó en cada etapa y con qué resultados, ver
 `docs/ROADMAP.md`.
