@@ -6,7 +6,8 @@ Run locally:
 
 Then:
     curl "http://127.0.0.1:8000/predict?cell=888b2c8ae5fffff"
-    curl "http://127.0.0.1:8000/cells/top?n=5"
+    curl "http://127.0.0.1:8000/cells/top?n=5"                  # demanda no resuelta
+    curl "http://127.0.0.1:8000/cells/top?n=5&rank_by=demand"   # solo demanda
 
 This is a real, runnable prototype (not just a design on paper) — see
 `24_deployment_architecture.py`, which exercises it in-process via
@@ -153,9 +154,28 @@ def predict(cell: str = Query(..., description="ID de celda H3 (resolución 8)")
 
 
 @app.get("/cells/top")
-def top_cells(n: int = Query(10, ge=1, le=100)) -> dict[str, Any]:
-    """Rank all known cells by predicted next-week demand — the
-    "priorización territorial" use case documented in 7.5's README.
+def top_cells(
+    n: int = Query(10, ge=1, le=100),
+    rank_by: str = Query(
+        "unresolved",
+        pattern="^(unresolved|demand)$",
+        description="'unresolved' (demanda x no cobertura, por defecto) o 'demand' (solo demanda)",
+    ),
+) -> dict[str, Any]:
+    """Rank cells for mapping, by unresolved demand — the prioritization
+    product of Section 7.6.3.
+
+        unresolved = predicted demand x uncovered rate
+
+    Ranking by raw demand alone points at the busy core, which is already
+    mapped; crossing it with the coverage gap is what makes the list
+    actionable. The uncovered rate comes from the cell's last observed week,
+    so it is known before the week being decided.
+
+    It is a decision rule, not a model output: the uncovered rate is observed,
+    not predicted, so the product was never validated as a prediction. Section
+    7.5.5 also found the ranking barely depends on which estimator produces the
+    demand figure.
     """
     features_df = _state["features"]
     model = _state["model"]
@@ -164,10 +184,23 @@ def top_cells(n: int = Query(10, ge=1, le=100)) -> dict[str, Any]:
     rows = [build_next_week_features(c, features_df) for c in cells]
     x = np.array([[r["features"][col] for col in FEATURE_COLS] for r in rows])
     preds = np.clip(model.predict(x), 0, None)
+    uncovered = np.array([r["features"]["pct_uncovered_orig"] for r in rows])
+    unresolved = preds * uncovered
 
-    ranked = sorted(zip(cells, preds), key=lambda t: t[1], reverse=True)[:n]
+    scores = unresolved if rank_by == "unresolved" else preds
+    order = np.argsort(-scores)[:n]
+
     return {
         "predicted_year": rows[0]["predicted_year"],
         "predicted_week": rows[0]["predicted_week"],
-        "top_cells": [{"h3_cell": c, "predicted_n_queries_orig": round(float(p), 1)} for c, p in ranked],
+        "rank_by": rank_by,
+        "top_cells": [
+            {
+                "h3_cell": cells[i],
+                "predicted_n_queries_orig": round(float(preds[i]), 1),
+                "uncovered_rate": round(float(uncovered[i]), 3),
+                "unresolved_demand": round(float(unresolved[i]), 1),
+            }
+            for i in order
+        ],
     }
