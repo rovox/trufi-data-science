@@ -19,9 +19,9 @@ sigue CRISP-DM y se alinea con las secciones exigidas por la guía UMSS.
 | 1 · Comprensión de los datos | 7.2 | `01`–`08` | `reports/01_data_understanding/` | ✅ |
 | 2 · Preparación de los datos | 7.3 | `09`–`17` | `reports/02_data_preparation/` | ✅ |
 | 3 · Modelado | 7.4 | `18`–`20` | `reports/03_modeling/` | ✅ |
-| 4 · Evaluación y resultados | 7.5 | `21`–`23` | `reports/04_evaluation/` | ❌ pendiente |
-| 5 · Despliegue | 7.6 | `24`–`25` | `reports/05_deployment/` | ❌ pendiente |
-| 6 · Conclusiones y recomendaciones | 8 | — | — | ❌ pendiente |
+| 4 · Evaluación y resultados | 7.5 | `21`–`23` | `reports/04_evaluation/` | ✅ |
+| 5 · Despliegue | 7.6 | `24`–`25` + `trufi_ds/api.py` | `reports/05_deployment/` | ✅ |
+| 6 · Conclusiones y recomendaciones | 2.8 | — | `reports/06_conclusions/` | ✅ |
 
 ---
 
@@ -158,35 +158,100 @@ XGBoost quedó descartado pese a su buen CV: en test es peor que la línea base.
 
 ---
 
-## Pendiente
+---
 
-### Etapa 4 · Evaluación y resultados (7.5)
+## Etapa 4 · Evaluación y resultados (7.5)
 
-- `21_hypothesis_tests.py` — contraste de **H1** (periferia vs. centro:
-  Mann-Whitney o t-test según normalidad, usando `dist_center_km`) y **H2**
-  (mejora del modelo sobre la línea base: test de Diebold-Mariano).
-- `22_results_analysis.py` — tablas y figuras de resultados.
-- `23_error_analysis.py` — residuos por celda, curvas de aprendizaje,
-  diagnóstico de sobreajuste/subajuste y estabilidad temporal.
-- Reporte esperado: `reports/04_evaluation/README.md`.
+**Objetivo**: medir el desempeño del modelo final, contrastar las hipótesis del
+proyecto y diagnosticar los errores.
 
-Insumo ya disponible: `data/processed/model_predictions.parquet` contiene las
-predicciones fila a fila de los 6 modelos/líneas base en train y test.
+| Script | Qué hizo | Resultado |
+|---|---|---|
+| `21_hypothesis_tests.py` | Contraste de H1 y H2 con verificación de robustez | **H1 confirmada** · **H2 matizada** (ver abajo) |
+| `22_results_analysis.py` | Métricas finales, demanda agregada, ranking espacial, gradiente centro-periferia | Serie semanal agregada que destapó el hallazgo principal |
+| `23_error_analysis.py` | Residuos por celda, curvas de aprendizaje, estabilidad temporal | Sin sobreajuste descontrolado |
 
-### Etapa 5 · Despliegue (7.6)
+**H1 (periferia)**: las celdas periféricas tienen una tasa de demanda no
+resuelta significativamente mayor que las centrales (Mann-Whitney,
+p = 6,1×10⁻⁹). **Confirmada.**
 
-- `24_deployment_architecture.py` — diagrama de arquitectura de la capa
-  analítica y propuesta de API (`/predict?cell=…&week=…`).
-- `25_monitoring_plan.py` — plan de monitoreo y reentrenamiento (GTFS semanal,
-  reentrenamiento trimestral).
-- Base ya existente: `src/run_update_pipeline.py` + `src/gtfs_download.py`
-  implementan el refresco de datos que sostiene el despliegue.
-- Reporte esperado: `reports/05_deployment/README.md`.
+**H2 (modelo vs. línea base)**: Random Forest supera a la línea base estacional
+de forma estadísticamente significativa por celda (Wilcoxon pareado,
+p = 0,033), pero la ventaja se concentra en las celdas de mayor demanda en vez
+de repartirse uniformemente. El Diebold-Mariano semanal (n=8) no alcanza
+significancia por falta de potencia. **Confirmada con matices.**
 
-### Etapa 6 · Conclusiones y recomendaciones (8)
+### Hallazgo principal: dos semanas de test son parciales
 
-Derivadas de los resultados, una por objetivo específico, sin introducir
-información nueva.
+`23_error_analysis.py` detectó que **2024-W18 (~5 h de datos) y 2024-W23
+(~11 h)** no son semanas completas sino fragmentos de un día: la primera es la
+reanudación tras el vacío de 7 semanas y la segunda es el corte final del
+dataset. Esto infla el error reportado, porque el modelo predice un nivel
+semanal normal que se compara contra una fracción de día:
+
+| | MAE | RMSE | R² |
+|---|---|---|---|
+| Con las 8 semanas de test (cifra citada en 7.4) | 10,19 | 80,70 | 0,656 |
+| Excluyendo las 2 semanas parciales (6 semanas reales) | **5,91** | **52,87** | **0,889** |
+
+Se mantienen las cifras de 7.4 como resultado principal por ser la evaluación
+más conservadora, pero 5,91 / R² 0,889 es la estimación más representativa del
+desempeño real y es coherente con los MAE de validación cruzada (2,8–6,2).
+
+**Conexión con la corrección del hueco**: este hallazgo y la corrección
+registrada en la etapa 3 describen el mismo problema de fondo desde dos
+ángulos — la ventana de prueba está comprometida en sus bordes. El vacío de
+7 semanas cae *dentro* del test, y las dos semanas defectuosas son
+exactamente las adyacentes a ese vacío y al final del dataset. La Sección
+7.3.9 afirmaba que el vacío caía en el entrenamiento; corregido eso, ambas
+observaciones encajan.
+
+**Salidas**: `reports/04_evaluation/` (+ 5 figuras).
+
+---
+
+## Etapa 5 · Despliegue (7.6)
+
+**Objetivo**: mostrar cómo se usaría el modelo en un contexto real.
+
+| Script | Qué hizo |
+|---|---|
+| `24_deployment_architecture.py` | Arquitectura de la capa analítica y contrato de la API |
+| `25_monitoring_plan.py` | Plan de monitoreo y reentrenamiento con umbrales derivados de datos reales |
+| `src/trufi_ds/api.py` | **Prototipo ejecutable** (FastAPI): `GET /predict?cell=…` |
+
+- **Umbrales de monitoreo**: alerta si el MAE semanal supera **11,64**
+  (media + 2σ de las semanas de test limpias); alerta de completitud si entran
+  menos de **10.041 consultas/semana** (30% de la mediana reciente). Este
+  segundo umbral existe precisamente para detectar el problema de semanas
+  parciales que encontró la etapa 4.
+- **Cadencia**: actualización GTFS semanal (ya implementada en
+  `run_update_pipeline.py`), reentrenamiento trimestral (alineado con la
+  ventana de 13 semanas de la validación cruzada).
+- **Limitación operativa documentada**: al probar el prototipo se confirmó que
+  la última semana del dataset es una de las semanas parciales, por lo que la
+  primera predicción en vivo heredaría un `lag1` artificialmente bajo.
+
+Levantar el prototipo:
+
+```bash
+uv run uvicorn trufi_ds.api:app --reload --port 8000
+curl "http://127.0.0.1:8000/predict?cell=888b2c8ae5fffff"
+```
+
+**Salidas**: `reports/05_deployment/`.
+
+---
+
+## Etapa 6 · Conclusiones y recomendaciones (2.8)
+
+Síntesis final que responde al objetivo general y a cada objetivo específico
+citando su evidencia en `reports/02_*` a `reports/05_*`, sin introducir
+hallazgos nuevos. Las recomendaciones se agrupan en ajustes metodológicos
+inmediatos, mejoras al modelado, aplicaciones futuras y requisitos previos a un
+despliegue productivo real.
+
+**Salidas**: `reports/06_conclusions/README.md`.
 
 ---
 
@@ -200,8 +265,8 @@ Registrados de forma explícita para no confundir lo planeado con lo hecho:
 | `logging.py` | Logging unificado a archivo + stdout | No implementado; los scripts imprimen a stdout | Pendiente |
 | `tests/` | `pytest` para validadores, filtros, sesionización, H3 | **No existe** el directorio | Deuda principal |
 | CI | Workflow de GitHub Actions con `ruff` + `pytest` | No existe `.github/` | Pendiente |
-| Datos en LFS | Todo `data/**` y `models/**` por Git LFS | Los artefactos de 7.4 se subieron como blobs normales | `lfs.github.com` está bloqueado por la política de red del entorno; ver `ARCHITECTURE.md` §5 |
-| Rama/PR por etapa | Un PR por etapa hacia `main` | Etapas 2–3 desarrolladas en `claude/laughing-rubin-ih0aud` | Falta integrar a `main` |
+| Datos en LFS | Todo `data/**` y `models/**` por Git LFS | Mixto: 3 modelos como punteros LFS, `lasso.pkl` y los `model_*.parquet` como blobs normales | `lfs.github.com` bloqueado en uno de los entornos; ver `ARCHITECTURE.md` §5 |
+| Rama/PR por etapa | Un PR por etapa hacia `main` | Etapas 2–6 desarrolladas en `claude/laughing-rubin-ih0aud` | Falta integrar a `main` |
 | Manifest de datasets | Todo dataset en `processed/` con manifest | `manifest.json` solo cubre las salidas de 7.3 | Falta re-ejecutar `generate_manifest.py` incluyendo los `model_*.parquet` |
 | Codificación en reportes | UTF-8 limpio | `06_municipio_validation.md` muestra mojibake (`SantivaÃ±ez`) | Bug de lectura en `14_validate_municipios.py`; cosmético pero visible en la monografía |
 
@@ -216,6 +281,8 @@ git lfs pull                      # materializa data/** (ver ARCHITECTURE.md §5
 for i in 01 02 03 04 05 06 07 08; do uv run src/${i}_*.py; done   # 7.2
 for i in 09 10 11 12 13 14 15 16 17; do uv run src/${i}_*.py; done # 7.3
 for i in 18 19 20; do uv run src/${i}_*.py; done                   # 7.4
+for i in 21 22 23; do uv run src/${i}_*.py; done                   # 7.5
+for i in 24 25; do uv run src/${i}_*.py; done                      # 7.6
 ```
 
 Cada script escribe su reporte en la carpeta `reports/` de su etapa y sus
