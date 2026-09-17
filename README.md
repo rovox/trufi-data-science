@@ -17,7 +17,8 @@ transporte público.
 | 5 · Despliegue (7.6) | ✅ done |
 | 6 · Conclusiones y recomendaciones (2.8) | ✅ done |
 
-Estrategia de organización en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Bitácora completa de lo ejecutado en cada etapa: [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Estrategia de organización y convenciones: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Resumen de hallazgos (Stage 1)
 
@@ -154,8 +155,7 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
 │   ├── 04_evaluation/
 │   ├── 05_deployment/
 │   └── 06_conclusions/
-├── notebooks/                # análisis exploratorio (vacío)
-├── docs/                     # ARCHITECTURE.md, ROADMAP.md
+├── docs/                     # ARCHITECTURE.md (estrategia), ROADMAP.md (bitácora)
 ├── pyproject.toml
 └── uv.lock
 ```

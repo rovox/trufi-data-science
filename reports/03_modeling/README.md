@@ -159,10 +159,14 @@ autoregresivas) está en `01_model_training.md`.
 - **Validación interna**: 4 pliegues de ventana deslizante (expanding
   origin), cada uno validando sobre 13 semanas (~3 meses) inmediatamente
   posteriores al corte de entrenamiento.
-- **Vacío de datos**: el vacío de 7 semanas (2024-03-11 a 2024-04-22) cae
-  dentro del entrenamiento; como el panel se indexa por semanas
-  *observadas*, las variables de rezago saltan el vacío usando la última
-  semana con datos — limitación documentada, no error.
+- **Vacío de datos**: el vacío de 7 semanas (2024-03-11 a 2024-04-22, semanas
+  2024-W11 a W17) cae **dentro de la ventana de prueba**, no del
+  entrenamiento: las últimas 8 semanas observadas son 2024-W09, W10 y luego
+  W18 a W23. Como el panel se indexa por semanas observadas, los rezagos
+  saltan el vacío: `lag1` en 2024-W18 apunta en realidad a 2024-W10. Las
+  variables autoregresivas —las más importantes del modelo— llegan
+  debilitadas justo en el conjunto de prueba, lo que explica parte de la
+  caída train→test.
 - **Reproducibilidad**: semilla fija `RANDOM_SEED = 42` en los cuatro modelos.
 
 ## 7.4.4 Hiperparámetros y selección
@@ -199,7 +203,7 @@ entrenamiento razonable: 50 y 42 predicciones (de 12,416), respectivamente,
 alcanzan el techo de seguridad de extrapolación (`expm1` de un valor
 log-escala muy grande). La causa es la tendencia sostenida de la demanda
 (`week_idx` toma valores nunca vistos en entrenamiento) combinada con la
-asimetría extrema del objetivo (Gini ≈ 0.85, Sección 7.3.8) — **no es un
+asimetría extrema del objetivo (Gini = 0.934 en resolución 8, Sección 7.3.8) — **no es un
 error de implementación, es evidencia de que un modelo lineal no es
 robusto para extrapolar esta serie hacia el futuro**. Los modelos de
 árboles no sufren este problema porque sus predicciones están acotadas por
@@ -247,7 +251,7 @@ los valores observados en las hojas de entrenamiento.
 |----------|----------------|
 | Panel completo (celda×semana) en vez de solo filas observadas | Ausencia = cero consultas, no dato faltante; necesario para lags y CV correctos |
 | Excluir `n_users_orig`, `n_sessions_orig`, columnas destino/derivadas | Fuga de información: manifestaciones simultáneas del mismo evento de demanda |
-| `log1p`/`expm1` en los cuatro modelos | El objetivo está fuertemente sesgado (Gini ≈ 0.85); mejora el ajuste y hace comparables las métricas |
+| `log1p`/`expm1` en los cuatro modelos | El objetivo está fuertemente sesgado (Gini = 0.934); mejora el ajuste y hace comparables las métricas |
 | Techo de seguridad en `expm1` | Evita que una extrapolación lineal inestable produzca valores infinitos; documentado como hallazgo, no oculto |
 | Ventanas deslizantes (no k-fold aleatorio) | La demanda es no estacionaria; k-fold aleatorio filtraría información futura |
 | Random Forest como modelo final | Mejor MAE de test, menor brecha train/test, único modelo que supera de forma consistente a la línea base |
