@@ -46,10 +46,10 @@ All data outputs are in `data/processed/`:
 
 | File | Description | Rows |
 |------|-------------|------|
-| `prep_queries_clean.parquet` | Final prepared query dataset | ~1.9M |
-| `indicators_table.parquet` | H3 cell × week aggregated features | varies |
-| `train.parquet` | Training set (chronological) | ~90% |
-| `test.parquet` | Test set (last 8 weeks) | ~10% |
+| `prep_queries_clean.parquet` | Final prepared query dataset (incl. flagged rows) | 1,927,615 |
+| `indicators_table.parquet` | H3 cell × week aggregated features (r8) | 42,676 |
+| `train.parquet` | Training set (chronological, 76 weeks) | 38,638 |
+| `test.parquet` | Test set (last 8 weeks) | 4,038 |
 | `manifest.json` | Dataset metadata and provenance | — |
 
 ---
@@ -62,20 +62,25 @@ All data outputs are in `data/processed/`:
 
 | Filter | Action | Count | Justification |
 |--------|--------|-------|---------------|
-| Exact duplicates | DROP | 104 | Export errors, no information value |
+| Exact duplicates | DROP | 60 | Redundant copies within 104 rows belonging to exact-duplicate groups |
 | Zero coordinates | FLAG | 3 | Invalid GPS readings |
-| Out-of-bbox | FLAG | 3,514 | Legitimate interurban trips, outside modeling scope |
-| Impossible jumps | FLAG | 2,156 | Device sharing/GPS errors, noise in sequential features |
+| Out-of-bbox | FLAG | 3,511 | Legitimate interurban trips, outside modeling scope |
+| Impossible jumps | FLAG | 17,741 | Device sharing/GPS errors, noise in sequential features |
 
 ### Integrity Check
 
 ```
 Original total:        1,927,675
-Dropped (duplicates):      -104
-Excluded (flagged):      -5,673
-Final included:       1,921,898
+Dropped (duplicates):       -60
+After deduplication:   1,927,615
+Excluded (flagged):     -21,255   (1.10%)
+Final included:        1,906,360   (98.90%)
 Verified: ✓
 ```
+
+Note: Section 7.2 reported **104 rows participating in exact-duplicate groups**;
+removing the redundant copies of those groups drops **60 rows**. Both figures are
+correct in their own context — see `01_filter_flow.md` for the generated table.
 
 ---
 
@@ -113,10 +118,10 @@ documented rather than impute artificial values.
 
 | Metric | Value |
 |--------|-------|
-| Total sessions | ~500,000 |
-| Single-query sessions | ~60% |
-| Median queries/session | 1 |
-| Median duration (multi-query) | ~5 minutes |
+| Total sessions | 934,096 |
+| Single-query sessions | 402,350 (43.1%) |
+| Multi-query sessions | 531,746 (56.9%) |
+| Median duration (multi-query) | 1 minute (mean 4.8, P95 25) |
 
 ### Fields Added
 
@@ -139,11 +144,20 @@ documented rather than impute artificial values.
 | 8 | ~0.46 km | ~0.74 km² | **Default** — neighborhood level |
 | 9 | ~0.17 km | ~0.11 km² | Block-level detail |
 
+### Cell Counts
+
+| Resolution | Origin Cells | Destination Cells |
+|------------|--------------|-------------------|
+| 7 | 320 | 387 |
+| 8 | 1,113 | 1,453 |
+| 9 | 4,170 | 5,157 |
+
 ### Concentration Pattern
 
-Strong spatial concentration confirmed across resolutions:
-- Top 10 origin cells: ~42% of queries
-- Gini coefficient: ~0.85 (high inequality)
+Strong spatial concentration confirmed across resolutions (resolution 8):
+- Top 10 origin cells: **42.2%** of queries
+- Top 50 origin cells: **78.0%**
+- Gini coefficient: **0.934** (very high inequality; 0.954 at r7, 0.903 at r9)
 
 ---
 
@@ -162,10 +176,10 @@ Strong spatial concentration confirmed across resolutions:
 | Metric | Value |
 |--------|-------|
 | Coverage threshold | 500m |
-| Origins covered | ~95% |
-| Destinations covered | ~94% |
-| Both OD covered | ~92% |
-| Median distance to route | ~100m |
+| Origins covered | 1,895,861 (99.4%) |
+| Destinations covered | 1,885,160 (98.9%) |
+| Both OD covered | 1,874,948 (98.4%) |
+| Median distance to route (origins) | 10m (mean 37m, P95 131m) |
 
 ### Fields Added
 
@@ -186,16 +200,15 @@ Strong spatial concentration confirmed across resolutions:
 2. **H3 consistency**: Check if cells have coherent municipality assignment
 3. **Boundary anomalies**: Identify close points with different labels
 
-### Valid Municipalities
+### Municipalities Found
 
-Cochabamba, Quillacollo, Sacaba, Tiquipaya, Colcapirhua, Vinto, Sipe Sipe,
-Villa Santivañez, Villa José Quintín Mendoza, externo
+21 distinct origin municipalities. The metropolitan core concentrates the
+demand: Cochabamba 86.6%, Sacaba 4.7%, Quillacollo 3.1%, Colcapirhua 2.9%,
+Tiquipaya 2.4%, Vinto 0.2%, Sipesipe 0.1%. The remainder (Arbieto, Villa
+Punata, Cliza, Tolata, Colomi, etc.) are below 0.05% each — interurban trips
+consistent with the out-of-bbox flag from 7.3.1.
 
-### Findings
-
-- **>99% valid**: Municipality values match known list
-- **High H3 consistency**: >90% of cells have coherent assignment
-- **Low boundary anomaly rate**: <5% of close queries have mismatched labels
+Full table in `06_municipio_validation.md`.
 
 ---
 
@@ -233,9 +246,9 @@ Villa Santivañez, Villa José Quintín Mendoza, externo
 
 | Pair | Correlation |
 |------|-------------|
-| r7 ↔ r8 | >0.95 |
-| r8 ↔ r9 | >0.95 |
-| r7 ↔ r9 | >0.90 |
+| r7 ↔ r8 | 0.9854 |
+| r7 ↔ r9 | 0.9856 |
+| r8 ↔ r9 | 0.9913 |
 
 ### Conclusion
 
@@ -256,10 +269,10 @@ High correlations confirm that spatial patterns are robust to resolution choice.
 
 ### Split Summary
 
-| Set | Observations | % | Weeks |
-|-----|--------------|---|-------|
-| Train | ~90% | — | ~76 |
-| Test | ~10% | — | 8 |
+| Set | Observations | % | Weeks | Cells |
+|-----|--------------|---|-------|-------|
+| Train | 38,638 | 90.5% | 76 | 1,511 |
+| Test | 4,038 | 9.5% | 8 | 931 |
 
 ### Why Not Random Split?
 
@@ -287,7 +300,10 @@ Chronological split ensures honest evaluation of predictive performance.
 
 ## Limitations
 
-1. **7-week data gap** (Mar-Apr 2024): Falls within training set; models must handle.
+1. **7-week data gap** (Mar-Apr 2024, weeks 2024-W11 to W17): Falls **inside the
+   test window**, not the training set — the last 8 observed weeks are 2024-W09,
+   W10, then W18-W23. Test metrics are penalized because lag features inside that
+   window reach back across the hole (see `09_train_test_split.md`).
 2. **GTFS completeness**: Coverage depends on Trufi mapping completeness.
 3. **Municipality precision**: Boundary assignments may have edge-case errors.
 4. **Resolution trade-off**: Cell-level estimates vary with tessellation choice.

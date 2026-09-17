@@ -220,7 +220,7 @@ amplifica exponencialmente.
 
 Esto **no es una falla de implementación sino un hallazgo genuino**: un
 modelo lineal ajustado sobre un objetivo con una asimetría extrema (Sección
-7.2.8, Gini ≈ 0.85) y una tendencia sostenida no es robusto para
+7.3.8, Gini = 0.934 en resolución 8) y una tendencia sostenida no es robusto para
 extrapolar hacia el futuro. Los modelos de árboles no sufren este problema
 porque sus predicciones están acotadas por los valores observados en las
 hojas de entrenamiento (no pueden "explotar" fuera de rango), lo cual es

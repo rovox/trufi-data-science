@@ -108,12 +108,23 @@ corte de entrenamiento de ese pliegue:
 
 ### Manejo del vacío de datos
 
-El vacío de 7 semanas (2024-03-11 a 2024-04-22, Sección 7.3.1/7.3.9) cae
-dentro del período de entrenamiento. Como el panel se indexa por semanas
-*observadas* (no por semanas calendario), las variables de rezago saltan
-ese vacío tomando la última semana con datos como "semana anterior" — una
-limitación documentada, no un error: no existe información para imputar el
-vacío en sí.
+El vacío de 7 semanas (2024-03-11 a 2024-04-22, es decir las semanas
+calendario 2024-W11 a W17; Sección 7.3.1/7.3.9) cae **dentro de la ventana
+de prueba**, no del entrenamiento: las últimas 8 semanas *observadas* son
+2024-W09, W10 y luego W18 a W23.
+
+Como el panel se indexa por semanas observadas (no por semanas calendario),
+las variables de rezago saltan ese vacío tomando la última semana con datos
+como "semana anterior". Esto tiene una consecuencia concreta sobre las
+métricas: `lag1_n_queries_orig` en 2024-W18 se refiere en realidad a
+2024-W10, ocho semanas calendario antes, de modo que las variables
+autoregresivas —las más importantes según la Sección 7.4 de importancia de
+variables— llegan debilitadas justo dentro del conjunto de prueba. Parte de
+la caída de desempeño entre train y test se explica por esto y no por
+sobreajuste.
+
+No se imputa el vacío: la interrupción significa que no hay datos que
+recuperar, no que la demanda fuera cero.
 
 ### Reproducibilidad
 
