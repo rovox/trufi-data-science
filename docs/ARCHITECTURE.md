@@ -17,7 +17,7 @@ código debe cumplir esto, no el revés.
 4. **Los reportes son evidencia, no narrativa suelta.** Todo archivo en
    `reports/` indica qué script lo produjo (como en
    `reports/01_data_understanding/README.md`).
-5. **Sin secretos ni datos personales en textos.** GitHub LFS para datos,
+5. **Sin secretos ni datos personales en textos.** Los datos versionados deben
    `.env` ignorado, y anonimizar cualquier muestra pegada en reportes/notebooks.
 6. **Configuración > hardcodeo.** Los paths y parámetros (bbox, resolución H3,
    umbrales de filtrado) deben migrar a un único módulo de config/CLI.
@@ -25,30 +25,45 @@ código debe cumplir esto, no el revés.
 ## 2. Pipeline por etapas
 
 ```
- 0 ingesta ──▶ 1 understanding ──▶ 2 preparation ──▶ 3 features ──▶ 4 modelado
- raw csv/gtfs   (done) 01..08      (próximo)         (futuro)       (futuro)
+ 0 ingesta ──▶ 1 understanding ──▶ 2 preparation ──▶ 3 modelado ──▶ 4 evaluación ──▶ 5 despliegue ──▶ 6 conclusiones
+ raw csv/gtfs   ✅ 01..08          ✅ 09..17         ✅ 18..20      ✅ 21..23        ✅ 24..25         ✅
+                   (7.2)              (7.3)            (7.4)          (7.5)            (7.6)             (2.8)
 ```
 
-| Etapa | Nombre | Entrada | Salida | Estado |
-|---|---|---|---|---|
-| 0 | Ingesta | Drive/GTFS externo | `data/raw/` | ✅ |
-| 1 | Understanding / compresión | `data/raw/*.csv` | `data/interim/queries.parquet/`, `reports/01_data_understanding/*`, `data/interim/h3_*.parquet` | ✅ |
-| 2 | Preparation | interim | `data/processed/` (dataset limpio, tipado, validado, particionado) | ➡️ |
-| 3 | Features / agregación | processed | features por userID y por celda H3 | ❌ |
-| 4 | Modelado y validación | features | modelos, métricas, reportes de validación | ❌ |
+**Todas las etapas del pipeline están completas.**
 
-Cada etapa futura crea su carpeta en `reports/` (p.ej. `reports/02_data_preparation/`)
-y su README siguiendo la plantilla de la etapa 1.
+La numeración de etapas del repo se mapea a las secciones de la guía UMSS. El
+detalle de qué hizo cada script y con qué resultado está en `docs/ROADMAP.md`.
+
+| Etapa | Sección | Entrada | Salida | Estado |
+|---|---|---|---|---|
+| 0 | — | Drive/GTFS externo | `data/raw/`, `data/external/` | ✅ |
+| 1 · Understanding | 7.2 | `data/raw/*.csv` | `data/interim/queries.parquet/`, `data/interim/h3_*.parquet`, `reports/01_data_understanding/` | ✅ |
+| 2 · Preparation | 7.3 | interim | `data/processed/` (limpio, validado, agregado a celda×semana) | ✅ |
+| 3 · Modelado | 7.4 | `data/processed/indicators_table.parquet` | `models/*.pkl`, `data/processed/model_*.parquet`, `reports/03_modeling/` | ✅ |
+| 4 · Evaluación | 7.5 | `model_predictions.parquet` + modelos | `reports/04_evaluation/` | ✅ |
+| 5 · Despliegue | 7.6 | modelo final | `src/trufi_ds/api.py`, `reports/05_deployment/` | ✅ |
+| 6 · Conclusiones | 2.8 | reportes de 7.2–7.6 | `reports/06_conclusions/` | ✅ |
+
+**Nota sobre la etapa "features"**: el plan original contemplaba una etapa 3 de
+features separada. En la práctica la ingeniería de variables quedó repartida
+entre `15_indicators_table.py` (agregación celda×semana, en 7.3) y
+`18_model_training.py` (rezagos, estacionalidad cíclica, centralidad, imputación
+territorial, en 7.4). No hay etapa de features independiente.
+
+Cada etapa crea su carpeta en `reports/` y su README siguiendo la plantilla de
+la etapa 1.
 
 ## 3. Capas de datos
 
 | Capa | Uso | Git | Inmutabilidad |
 |---|---|---|---|
-| `data/raw/` | Fuente original (CSV + GTFS). Solo lectura | LFS | inmutable |
-| `data/external/` | Datos de terceros sin transformar (GTFS MDB) | LFS | inmutable |
-| `data/_archive/` | Descargas originales (zip) conservadas | LFS | inmutable |
-| `data/interim/` | Outputs intermedios de una etapa para consumo de la siguiente | LFS | regenerable |
-| `data/processed/` | Datasets **finales** listos para features/modelado | LFS | regenerable |
+| `data/raw/` | Fuente original (CSV + GTFS). Solo lectura | Git | inmutable |
+| `data/external/` | Datos de terceros sin transformar (GTFS MDB) | Git | inmutable |
+| `data/_archive/` | Descargas originales (zip) conservadas | Git | inmutable |
+| `data/interim/` | Outputs intermedios de una etapa para consumo de la siguiente | Git | regenerable |
+| `data/processed/` | Datasets **finales** listos para features/modelado | Git | regenerable |
+| `models/` | Modelos entrenados serializados (`joblib`) | Git | regenerable |
 
 Convenciones de nombres de dataset:
 - **Parquet** con particionado Hive (`year=YYYY/week=WW/`) cuando el volumen lo
@@ -57,54 +72,73 @@ Convenciones de nombres de dataset:
 - Cada dataset tiene un manifest (`.json`/`.md`) con: origen, script generador,
   fecha, count de filas y schema. Esto es requisito para `processed/`.
 
-## 4. Convenciones de código (target)
+## 4. Convenciones de código
 
-Los scripts actuales (`src/01_*.py`, `src/utils.py`) son correctos pero están
-orientados a tareas sueltas con paths relativos hardcodeados. La estrategia es
-migrar progresivamente a:
+### Estructura real (lo que existe hoy)
 
 ```
-src/trufi_ds/
-├── config.py          # paths, bbox, res, umbrales — un solo lugar
-├── io.py              # read_csv_safe, lectores/escritores de datasets + manifest
-├── stages/
-│   ├── understanding/  # 01..08 existentes (frozen)
-│   ├── preparation/    # próximos scripts
-│   ├── features/
-│   └── model/
-├── logging.py          # logging único (archivo + stdout)
-└── cli.py              # uv run trufi_ds prepare --from-interim
+src/
+├── NN_nombre.py          # 01..20 — un script por tarea, ejecutable y autocontenido
+├── utils.py              # read_csv_safe (helper de la etapa 1)
+├── gtfs_download.py      # descarga del feed GTFS vía mobility-db-api
+├── run_update_pipeline.py# refresco del GTFS (base del despliegue, 7.6)
+├── generate_manifest.py  # manifest.json de data/processed/
+└── trufi_ds/
+    ├── config.py         # paths, bbox, H3, umbrales, semilla, features — único lugar
+    ├── io.py             # schemas declarados, lectores/escritores, write_manifest
+    ├── transforms.py     # transformación del target (log1p / expm1 con techo)
+    ├── api.py            # prototipo FastAPI de predicción (Sección 7.6)
+    └── stages/           # paquetes creados pero vacíos (solo docstrings)
 ```
 
-Reglas:
-- **Paths**: siempre vía `config.py` o argumentos CLI; nunca `"data/..."` literal
-  dentro de la lógica.
-- **Idempotencia**: re-ejecutar una etapa sobrescribe sus outputs completos
-  (nunca correo append).
-- **Tipado de schema**: cada dataset declara su schema (`pl.Schema`) en `io.py`;
-  leer siempre con ese esquema para que los errores exploten temprano.
-- **Tests**: `pytest` para las funciones puras (validadores, filtros de
-  duplicados, sesionización, H3). Umbral mínimo: lo que se usa en `preparation`.
-- **Lint**: `ruff` (ya en dev deps). Correr antes de commit:
-  `uv run ruff check src tests`.
-- Los scripts stage-1 quedan **congelados** como referencia reproducible; la
-  migración a paquete se hace a partir del stage 2, no retroactiva (salvo
-  extraer los helpers reutilizables a `trufi_ds/io.py`).
+**El plan original era migrar todo a `trufi_ds.stages.*` con un `cli.py`. No se
+hizo.** Lo que sí se adoptó del plan es la parte que resolvía el problema real
+(paths y parámetros centralizados en `config.py`, schemas e I/O en `io.py`); los
+scripts numerados se mantuvieron porque cada uno corresponde 1:1 con una
+subsección de la monografía y con su reporte, lo que hace la trazabilidad
+directa. `stages/` quedó como envoltorio vacío: o se puebla, o se borra.
 
-## 5. Gestión de datos (Git + LFS)
+### Reglas vigentes
 
-- `data/**` se versiona con Git LFS (`.gitattributes`).
-- **Cuidado con el plan gratuito de GitHub**: 1 GB storage / 1 GB bandwidth/mes.
-  Con ~525 MB ya se usa la mitad del storage. Política:
-  1. No meter datasets intermedios redundantes (borrar y regenerar en vez de
-     acumular).
-  2. Si `processed/` crece, mover datasets históricos a un bucket (S3/MinIO) o
-     a HuggingFace datasets, y guardar en git solo un `manifest` + `punto de
-     montaje` documentado en `config.py`.
-  3. Considerar activar Git LFS pro / reglas de almacenamiento si el repo
-     académico crece (checkout de datos por rol).
-- **`.gitignore`** excluye entornos, caches y secretos; los datos NO están ahí
-  (van por LFS).
+- **Un script = una subsección de la guía = un reporte.** El script imprime su
+  avance y escribe un `.md` en `reports/<etapa>/` que declara qué script lo
+  generó.
+- **Paths y parámetros**: siempre vía `trufi_ds/config.py`; nunca `"data/..."`
+  literal dentro de la lógica. Los scripts `01`–`08` son la excepción histórica
+  (quedaron congelados con paths relativos).
+- **Constantes compartidas viven en `config.py`**, no duplicadas entre scripts
+  (p. ej. `FEATURE_COLS` y `TERRITORIAL_COLS` los consumen los tres scripts
+  de 7.4).
+- **Nada que se serialice puede definirse en un script.** Una función usada por
+  un objeto que se guarda con `joblib` debe vivir en el paquete (`transforms.py`),
+  porque `pickle` la resuelve por su módulo: si se define en un script ejecutado
+  como `__main__`, solo ese script puede volver a cargarlo.
+- **Idempotencia**: re-ejecutar una etapa sobrescribe sus outputs completos,
+  nunca hace append.
+- **Reproducibilidad**: semilla fija (`RANDOM_SEED` en `config.py`). Aun así,
+  XGBoost multihilo introduce variación de punto flotante entre corridas; es
+  esperable y no altera conclusiones.
+- **Lint**: `uv run ruff check src` debe pasar antes de commit.
+
+### Deuda reconocida
+
+- **No hay `tests/`.** Es la deuda principal: las funciones puras (filtros,
+  sesionización, H3, construcción de rezagos) no tienen pruebas.
+- **No hay `logging.py`** — los scripts imprimen a stdout.
+- **No hay CI** (`.github/` no existe), así que `ruff` se corre a mano.
+
+## 5. Gestión de datos (Git)
+
+- `data/**` y `models/**` se almacenan como blobs normales de Git.
+- La historia usa blobs normales de Git para que los clones y los cambios
+  futuros no dependan de filtros, hooks ni almacenamiento externo.
+- Los datasets y modelos que se regeneran deben conservar su script de origen,
+  manifest y parámetros de ejecución. No se deben acumular copias redundantes.
+- Si el repositorio crece demasiado, la alternativa futura será almacenar los
+  datasets fuera de Git y versionar únicamente un manifest documentado; no se
+  reintroducirá LFS automáticamente.
+- **`.gitignore`** excluye entornos, caches y secretos; los datos no se ignoran
+  porque forman parte de los artefactos versionados del proyecto.
 
 ## 6. Reproducibilidad y versionado de resultados
 
@@ -114,25 +148,43 @@ Reglas:
   - comando exacto de reproducción,
   - deriva del código vs resultados si se detectan cambios.
 - Los datasets generados llevan manifest con el commit que los produjo
-  (campo `git_commit`).
+  (`data/processed/manifest.json`, campo `git.commit`), generado por
+  `src/generate_manifest.py`.
+- **Gap conocido**: el manifest actual solo cubre las salidas de la etapa 2
+  (`prep_queries_clean`, `indicators_table`, `train`, `test`). Los datasets de
+  la etapa 3 (`model_features`, `model_train`, `model_test`, `model_metrics`,
+  `model_predictions`) todavía no están registrados ahí — hay que re-ejecutar
+  `generate_manifest.py` incluyéndolos.
 
 ## 7. Flujo de trabajo en git
 
-- Rama `main` = estable. Cada etapa tiene PR (`feat/02-prep`) y revisión de su
-  README+checks (ruff, pytest).
+- Rama `main` = estable.
 - Commits pequeños y con prefijo semántico (`feat`, `fix`, `data`, `docs`,
   `chore`).
-- Los cambios de datos (LFS) se commitean por separado de los cambios de código
-  para poder revertirlos independientemente.
+- Los cambios de datos se commitean por separado de los cambios de código para
+  poder revertirlos independientemente (así se hizo en las etapas 2 y 3).
+- **Estado real**: las etapas 2 y 3 se desarrollaron en la rama
+  `claude/laughing-rubin-ih0aud` y **aún no están integradas a `main`**. La
+  revisión con checks automáticos por PR no se aplicó porque no hay CI.
 
-## 8. Roadmap de implementación
+## 8. Próximos pasos de arquitectura
 
-1. Crear `src/trufi_ds/` con `config.py`, `io.py`, `logging.py` (vaciar utils).
-2. Implementar stage 2 (ver `docs/ROADMAP.md`) con esos módulos y scripts por
-  tarea dentro de `src/trufi_ds/stages/preparation/`.
-3. Añadir `tests/` para las funciones de preparation y CI ligero (un workflow
-  GitHub Actions que corra `ruff` + `pytest`).
-4. Al llegar a stage 3, definir el dataset de features y su manifest.
+Ordenados por lo que más duele hoy:
+
+1. **`tests/`** — pruebas de las funciones puras (filtros de exclusión,
+   sesionización, construcción de rezagos, grilla completa). Es la única parte
+   del pipeline que hoy no tiene red de seguridad.
+2. **CI mínimo** — workflow de GitHub Actions con `uv sync` + `ruff check`
+   (y `pytest` una vez exista).
+3. **Resolver `trufi_ds/stages/`** — poblarlo o eliminarlo; hoy son paquetes
+   vacíos que sugieren una estructura que no existe.
+4. **Unificar el almacenamiento de artefactos** (§5): los modelos y datasets
+  deben mantenerse como blobs normales en `models/` y `data/`.
+5. **Integrar a `main`** las etapas 2 a 6, que viven en
+   `claude/laughing-rubin-ih0aud`.
+
+Para el detalle de qué se ejecutó en cada etapa y con qué resultados, ver
+`docs/ROADMAP.md`.
 
 ---
 
