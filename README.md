@@ -101,12 +101,13 @@ Reporte completo en [`reports/06_conclusions/README.md`](reports/06_conclusions/
 - Python ≥ 3.12, gestión con [`uv`](https://docs.astral.sh/uv/)
 - `polars`, `duckdb`, `pyarrow` (procesamiento) · `h3`, `geopandas`, `shapely` (espacial)
 - `scikit-learn`, `xgboost`, `shap` (modelado) · `fastapi`, `uvicorn` (despliegue) · `pytest`, `ruff` (dev)
-- Datos versionados directamente en Git (`data/**`)
+- Código y modelos versionados en Git; los datos se mantienen fuera del repositorio (`data/`)
 
 ## Cómo reproducir
 
 ```bash
 uv sync                 # instala dependencias desde uv.lock
+# Coloca los datos externos en ./data/ antes de ejecutar el pipeline.
 
 # Stage 1 — Data understanding
 for i in 01 02 03 04 05 06 07 08; do uv run src/${i}_*.py; done
@@ -137,7 +138,7 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
 ## Estructura del repo
 
 ```
-├── data/                     # capas de datos versionadas en Git
+├── data/                     # datos locales, ignorados por Git
 │   ├── raw/                  #   85 CSVs semanales + GTFS (solo lectura)
 │   ├── interim/              #   queries.parquet + h3_*.parquet
 │   ├── processed/            #   (resultados de preparation)
@@ -165,12 +166,12 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
   (Google Drive), 2022-09 a 2024-06.
 - **GTFS**: feed del transporte de Cochabamba (`data/raw/gtfs/` y `data/external/`,
   fuente MDB).
-- `data/**` y `models/**` se almacenan como blobs normales de Git. Los datos
-  generados deben mantenerse reproducibles y documentar su script de origen.
-- Los `data/processed/prep_*.parquet` son salidas intermedias regenerables y se
-  excluyen del repositorio por su tamaño; los scripts 09→14 los recrean.
-- Los datasets intermedios y modelos que puedan regenerarse no deben
-  acumular versiones innecesarias en el repositorio.
+- `data/` no se almacena en Git. Debe obtenerse desde el almacenamiento externo
+  del proyecto y colocarse en la raíz antes de ejecutar los scripts.
+- Los datasets generados son reproducibles y deben documentar su script de
+  origen; permanecen en `data/` y no se suben al repositorio.
+- Los modelos y metadatos pequeños sí pueden versionarse en Git; no se deben
+  acumular copias regenerables innecesarias.
 
 ## Licencia / convenciones
 

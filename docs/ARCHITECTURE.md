@@ -58,11 +58,11 @@ la etapa 1.
 
 | Capa | Uso | Git | Inmutabilidad |
 |---|---|---|---|
-| `data/raw/` | Fuente original (CSV + GTFS). Solo lectura | Git | inmutable |
-| `data/external/` | Datos de terceros sin transformar (GTFS MDB) | Git | inmutable |
-| `data/_archive/` | Descargas originales (zip) conservadas | Git | inmutable |
-| `data/interim/` | Outputs intermedios de una etapa para consumo de la siguiente | Git | regenerable |
-| `data/processed/` | Datasets **finales** listos para features/modelado | Git | regenerable |
+| `data/raw/` | Fuente original (CSV + GTFS). Solo lectura | Externo | inmutable |
+| `data/external/` | Datos de terceros sin transformar (GTFS MDB) | Externo | inmutable |
+| `data/_archive/` | Descargas originales (zip) conservadas | Externo | inmutable |
+| `data/interim/` | Outputs intermedios de una etapa para consumo de la siguiente | Local | regenerable |
+| `data/processed/` | Datasets **finales** listos para features/modelado | Local | regenerable |
 | `models/` | Modelos entrenados serializados (`joblib`) | Git | regenerable |
 
 Convenciones de nombres de dataset:
@@ -127,20 +127,16 @@ directa. `stages/` quedó como envoltorio vacío: o se puebla, o se borra.
 - **No hay `logging.py`** — los scripts imprimen a stdout.
 - **No hay CI** (`.github/` no existe), así que `ruff` se corre a mano.
 
-## 5. Gestión de datos (Git)
+## 5. Gestión de datos fuera de Git
 
-- `data/**` y `models/**` se almacenan como blobs normales de Git.
-- Los `data/processed/prep_*.parquet` son salidas intermedias regenerables y se
-  excluyen del repositorio por su tamaño; los scripts 09→14 los recrean.
-- La historia usa blobs normales de Git para que los clones y los cambios
-  futuros no dependan de filtros, hooks ni almacenamiento externo.
-- Los datasets y modelos que se regeneran deben conservar su script de origen,
-  manifest y parámetros de ejecución. No se deben acumular copias redundantes.
-- Si el repositorio crece demasiado, la alternativa futura será almacenar los
-  datasets fuera de Git y versionar únicamente un manifest documentado; no se
-  reintroducirá LFS automáticamente.
-- **`.gitignore`** excluye entornos, caches y secretos; los datos no se ignoran
-  porque forman parte de los artefactos versionados del proyecto.
+- `data/` está excluido completamente mediante `.gitignore` y no forma parte
+  del historial del repositorio.
+- Los datos deben obtenerse desde el almacenamiento externo del proyecto y
+  materializarse en `./data/` antes de ejecutar el pipeline.
+- Los datasets intermedios y procesados permanecen locales y son regenerables;
+  sus scripts, schemas y manifests documentan cómo recrearlos.
+- `models/`, código y documentación sí se versionan normalmente en Git.
+- **`.gitignore`** excluye entornos, caches, secretos y todos los datos locales.
 
 ## 6. Reproducibilidad y versionado de resultados
 
