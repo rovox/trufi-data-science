@@ -53,7 +53,10 @@ Utilities:
 - `run_update_pipeline.py` — Check for GTFS updates and regenerate coverage
 - `generate_manifest.py` — Create `data/processed/manifest.json`
 
-Outputs: `data/processed/` → `prep_queries_clean.parquet`, `indicators_table.parquet`, `train.parquet`, `test.parquet`, `manifest.json`
+Outputs: `data/processed/` → `indicators_table.parquet`, `train.parquet`, `test.parquet`, `manifest.json`
+
+Los `prep_*.parquet` son salidas intermedias regenerables y se mantienen fuera
+del versionado por su tamaño; se generan al ejecutar los scripts 09→14.
 
 ## Paquete trufi_ds
 

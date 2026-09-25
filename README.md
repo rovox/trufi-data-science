@@ -167,6 +167,8 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
   fuente MDB).
 - `data/**` y `models/**` se almacenan como blobs normales de Git. Los datos
   generados deben mantenerse reproducibles y documentar su script de origen.
+- Los `data/processed/prep_*.parquet` son salidas intermedias regenerables y se
+  excluyen del repositorio por su tamaño; los scripts 09→14 los recrean.
 - Los datasets intermedios y modelos que puedan regenerarse no deben
   acumular versiones innecesarias en el repositorio.
 
