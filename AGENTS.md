@@ -21,7 +21,8 @@ Contexto y estrategia (en español): `README.md`, `docs/ARCHITECTURE.md` (organi
 
 ## Datos y versionado
 
-- `data/**` y `models/**` se versionan como archivos normales de Git. Tras clonar no hace falta instalar herramientas adicionales para materializar los datos.
+- `data/` se mantiene fuera de Git y debe existir localmente para ejecutar el pipeline; `models/**` y el código se versionan como archivos normales de Git.
+- Tras clonar, materializa los datos desde el almacenamiento externo documentado antes de ejecutar los scripts.
 - No commitear parquets intermedios redundantes ni acumular versiones regenerables.
 
 ## Gotcha de codificación
@@ -53,7 +54,7 @@ Utilities:
 - `run_update_pipeline.py` — Check for GTFS updates and regenerate coverage
 - `generate_manifest.py` — Create `data/processed/manifest.json`
 
-Outputs: `data/processed/` → `indicators_table.parquet`, `train.parquet`, `test.parquet`, `manifest.json`
+Outputs locales: `data/processed/` → `indicators_table.parquet`, `train.parquet`, `test.parquet`, `manifest.json`
 
 Los `prep_*.parquet` son salidas intermedias regenerables y se mantienen fuera
 del versionado por su tamaño; se generan al ejecutar los scripts 09→14.

@@ -32,6 +32,10 @@ Thumbs.db
 tmp/
 scratch/
 
+# --- Local datasets ---
+# Obtain or materialize data separately; the repository stores code and metadata.
+data/
+
 # --- Regenerable preparation outputs ---
 # These intermediate datasets exceed GitHub's regular file-size limit.
 data/processed/prep_*.parquet
