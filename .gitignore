@@ -31,3 +31,7 @@ Thumbs.db
 # --- Local scratch ---
 tmp/
 scratch/
+
+# --- Regenerable preparation outputs ---
+# These intermediate datasets exceed GitHub's regular file-size limit.
+data/processed/prep_*.parquet

@@ -130,6 +130,8 @@ directa. `stages/` quedó como envoltorio vacío: o se puebla, o se borra.
 ## 5. Gestión de datos (Git)
 
 - `data/**` y `models/**` se almacenan como blobs normales de Git.
+- Los `data/processed/prep_*.parquet` son salidas intermedias regenerables y se
+  excluyen del repositorio por su tamaño; los scripts 09→14 los recrean.
 - La historia usa blobs normales de Git para que los clones y los cambios
   futuros no dependan de filtros, hooks ni almacenamiento externo.
 - Los datasets y modelos que se regeneran deben conservar su script de origen,
