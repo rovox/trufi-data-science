@@ -297,7 +297,7 @@ Registrados de forma explícita para no confundir lo planeado con lo hecho:
 | `logging.py` | Logging unificado a archivo + stdout | No implementado; los scripts imprimen a stdout | Pendiente |
 | `tests/` | `pytest` para validadores, filtros, sesionización, H3 | **No existe** el directorio | Deuda principal |
 | CI | Workflow de GitHub Actions con `ruff` + `pytest` | No existe `.github/` | Pendiente |
-| Datos en LFS | Todo `data/**` y `models/**` por Git LFS | Mixto: 3 modelos como punteros LFS, `lasso.pkl` y los `model_*.parquet` como blobs normales | `lfs.github.com` bloqueado en uno de los entornos; ver `ARCHITECTURE.md` §5 |
+| Versionado de datos | Todo `data/**` y `models/**` como blobs normales de Git | Migración histórica completada | Mantener scripts, manifests y artefactos regenerables sincronizados |
 | Rama/PR por etapa | Un PR por etapa hacia `main` | Etapas 2–6 desarrolladas en `claude/laughing-rubin-ih0aud` | Falta integrar a `main` |
 | Manifest de datasets | Todo dataset en `processed/` con manifest | `manifest.json` solo cubre las salidas de 7.3 | Falta re-ejecutar `generate_manifest.py` incluyendo los `model_*.parquet` |
 | Codificación en reportes | UTF-8 limpio | `06_municipio_validation.md` muestra mojibake (`SantivaÃ±ez`) | Bug de lectura en `14_validate_municipios.py`; cosmético pero visible en la monografía |
@@ -308,7 +308,6 @@ Registrados de forma explícita para no confundir lo planeado con lo hecho:
 
 ```bash
 uv sync
-git lfs pull                      # materializa data/** (ver ARCHITECTURE.md §5)
 
 for i in 01 02 03 04 05 06 07 08; do uv run src/${i}_*.py; done   # 7.2
 for i in 09 10 11 12 13 14 15 16 17; do uv run src/${i}_*.py; done # 7.3

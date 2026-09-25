@@ -19,11 +19,10 @@ Contexto y estrategia (en español): `README.md`, `docs/ARCHITECTURE.md` (organi
 - `from utils import ...` funciona solo porque el directorio del script (`src/`) queda en `sys.path` al ejecutarlo como `uv run src/xx.py`. No lo conviertas a import de módulo ni muevas `utils.py` sin preservar eso.
 - Los scripts 03–08 leen `data/interim/queries.parquet` como directorio Hive-partitioned (`year=YYYY/week=WW`); `pl.read_parquet` sobre el dir funciona.
 
-## Datos (Git LFS)
+## Datos y versionado
 
-- Todo `data/**` es Git LFS (184 objetos, ~525 MB). Tras clonar: `git lfs pull`. Los datasets nuevos/modificados se trackean solos (`.gitattributes`); verifica con `git lfs status` antes de pushear.
-- `git-lfs` está instalado en `~/.local/bin` de esta máquina (fuera del PATH del sistema). Si `git lfs` falla: `export PATH="$HOME/.local/bin:$PATH"`.
-- Cuota gratuita de GitHub LFS: 1 GB storage / 1 GB bandwidth/mes, ya se usa ~525 MB. No commitees parquets intermedios redundantes ni acumules versiones regenerables.
+- `data/**` y `models/**` se versionan como archivos normales de Git. Tras clonar no hace falta instalar herramientas adicionales para materializar los datos.
+- No commitear parquets intermedios redundantes ni acumular versiones regenerables.
 
 ## Gotcha de codificación
 
@@ -66,5 +65,5 @@ El código nuevo vive en `src/trufi_ds/`:
 ## Convenciones de pipeline y git
 
 - Trabajo completado = **stage 2 data preparation** ✓. Próximo: stage 3 features.
-- Git: `main` = estable; commits con prefijo semántico (`feat`/`fix`/`data`/`docs`/`chore`); committear datos (LFS) por separado del código.
+- Git: `main` = estable; commits con prefijo semántico (`feat`/`fix`/`data`/`docs`/`chore`); commitear datos por separado del código cuando el cambio lo justifique.
 - No editar `data/raw/` (solo lectura); flags/filtros documentados en `reports/01_data_understanding/README.md` §9 y `reports/02_data_preparation/README.md`.

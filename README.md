@@ -101,13 +101,12 @@ Reporte completo en [`reports/06_conclusions/README.md`](reports/06_conclusions/
 - Python ≥ 3.12, gestión con [`uv`](https://docs.astral.sh/uv/)
 - `polars`, `duckdb`, `pyarrow` (procesamiento) · `h3`, `geopandas`, `shapely` (espacial)
 - `scikit-learn`, `xgboost`, `shap` (modelado) · `fastapi`, `uvicorn` (despliegue) · `pytest`, `ruff` (dev)
-- Datos versionados con **Git LFS** (`data/**`)
+- Datos versionados directamente en Git (`data/**`)
 
 ## Cómo reproducir
 
 ```bash
 uv sync                 # instala dependencias desde uv.lock
-git lfs pull             # materializa data/** y models/** (ver §Datos)
 
 # Stage 1 — Data understanding
 for i in 01 02 03 04 05 06 07 08; do uv run src/${i}_*.py; done
@@ -138,13 +137,13 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
 ## Estructura del repo
 
 ```
-├── data/                     # capas de datos (Git LFS)
+├── data/                     # capas de datos versionadas en Git
 │   ├── raw/                  #   85 CSVs semanales + GTFS (solo lectura)
 │   ├── interim/              #   queries.parquet + h3_*.parquet
 │   ├── processed/            #   (resultados de preparation)
 │   ├── external/             #   GTFS MDB
 │   └── _archive/             #   archivo zip original
-├── models/                   # modelos entrenados, *.pkl (ver nota LFS abajo)
+├── models/                   # modelos entrenados, *.pkl
 ├── src/                      # scripts por tarea (NN_*)
 │   └── trufi_ds/
 │       └── api.py            # servicio de predicción (FastAPI, Sección 7.6)
@@ -166,20 +165,10 @@ dataset en `data/interim/` / `data/processed/`). Requiere los datos en
   (Google Drive), 2022-09 a 2024-06.
 - **GTFS**: feed del transporte de Cochabamba (`data/raw/gtfs/` y `data/external/`,
   fuente MDB).
-- Todo `data/**` se versiona con **Git LFS**. Para clonar y materializar los
-  archivos: `git lfs pull`.
-- `models/**` está marcado para Git LFS en `.gitattributes`. Los modelos
-  grandes (`random_forest.pkl` ~36MB, `xgboost.pkl`, `ridge.pkl`) ya están
-  en LFS propiamente (migrados en el commit `db64fe5`, tras un bloqueo de
-  red temporal documentado en `774bc19`). `lasso.pkl` (~2KB) y los
-  `data/processed/model_*.parquet` (todos <3MB) quedaron como blobs de git
-  planos — lo suficientemente pequeños como para no justificar la
-  migración inmediata, aunque no coincide estrictamente con
-  `.gitattributes`.
-
-> ⚠️ Plan gratuito de GitHub LFS: 1 GB storage / 1 GB bandwidth mensual.
-> El dataset ocupa ~525 MB y crecerá en `processed/`; revisa la política en
-> `docs/ARCHITECTURE.md` §Gestión de datos.
+- `data/**` y `models/**` se almacenan como blobs normales de Git. Los datos
+  generados deben mantenerse reproducibles y documentar su script de origen.
+- Los datasets intermedios y modelos que puedan regenerarse no deben
+  acumular versiones innecesarias en el repositorio.
 
 ## Licencia / convenciones
 

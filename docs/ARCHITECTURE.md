@@ -17,7 +17,7 @@ código debe cumplir esto, no el revés.
 4. **Los reportes son evidencia, no narrativa suelta.** Todo archivo en
    `reports/` indica qué script lo produjo (como en
    `reports/01_data_understanding/README.md`).
-5. **Sin secretos ni datos personales en textos.** GitHub LFS para datos,
+5. **Sin secretos ni datos personales en textos.** Los datos versionados deben
    `.env` ignorado, y anonimizar cualquier muestra pegada en reportes/notebooks.
 6. **Configuración > hardcodeo.** Los paths y parámetros (bbox, resolución H3,
    umbrales de filtrado) deben migrar a un único módulo de config/CLI.
@@ -58,12 +58,12 @@ la etapa 1.
 
 | Capa | Uso | Git | Inmutabilidad |
 |---|---|---|---|
-| `data/raw/` | Fuente original (CSV + GTFS). Solo lectura | LFS | inmutable |
-| `data/external/` | Datos de terceros sin transformar (GTFS MDB) | LFS | inmutable |
-| `data/_archive/` | Descargas originales (zip) conservadas | LFS | inmutable |
-| `data/interim/` | Outputs intermedios de una etapa para consumo de la siguiente | LFS | regenerable |
-| `data/processed/` | Datasets **finales** listos para features/modelado | LFS | regenerable |
-| `models/` | Modelos entrenados serializados (`joblib`) | LFS declarado (ver §5) | regenerable |
+| `data/raw/` | Fuente original (CSV + GTFS). Solo lectura | Git | inmutable |
+| `data/external/` | Datos de terceros sin transformar (GTFS MDB) | Git | inmutable |
+| `data/_archive/` | Descargas originales (zip) conservadas | Git | inmutable |
+| `data/interim/` | Outputs intermedios de una etapa para consumo de la siguiente | Git | regenerable |
+| `data/processed/` | Datasets **finales** listos para features/modelado | Git | regenerable |
+| `models/` | Modelos entrenados serializados (`joblib`) | Git | regenerable |
 
 Convenciones de nombres de dataset:
 - **Parquet** con particionado Hive (`year=YYYY/week=WW/`) cuando el volumen lo
@@ -127,44 +127,18 @@ directa. `stages/` quedó como envoltorio vacío: o se puebla, o se borra.
 - **No hay `logging.py`** — los scripts imprimen a stdout.
 - **No hay CI** (`.github/` no existe), así que `ruff` se corre a mano.
 
-## 5. Gestión de datos (Git + LFS)
+## 5. Gestión de datos (Git)
 
-- `data/**` y `models/**` se declaran para Git LFS en `.gitattributes`.
-- **Estado inconsistente conocido**: los artefactos de modelado quedaron
-  repartidos entre los dos mecanismos, porque se commitearon desde entornos con
-  distinto acceso a LFS:
-
-  | Ruta | Cómo está almacenada |
-  |---|---|
-  | `models/ridge.pkl`, `random_forest.pkl`, `xgboost.pkl` | punteros LFS |
-  | `models/lasso.pkl` | blob normal (~2 KB) |
-  | `data/processed/model_*.parquet` | blobs normales (~3,5 MB) |
-
-  El motivo del desvío: un entorno de desarrollo remoto tiene bloqueado
-  `lfs.github.com` por política de egress, lo que impide subir objetos LFS; ahí
-  se optó por commitear blobs normales antes que bloquear la entrega.
-
-  **Consecuencia a verificar**: si los objetos LFS de esos tres modelos nunca se
-  subieron al servidor, un clon nuevo obtendrá punteros rotos. Comprobar con
-  `git lfs fsck` / `git lfs pull` desde un entorno con acceso.
-
-  **Pendiente**: unificar el criterio — o todo por LFS (`git lfs migrate import`
-  sobre `models/**` y `data/processed/model_*.parquet`), o excluir los modelos
-  del versionado y regenerarlos con `uv run src/18_model_training.py`, que es
-  reproducible por semilla fija.
-- Como `.gitattributes` marca esas rutas como `filter=lfs`, un `git add`
-  posterior con LFS operativo las convertirá a punteros automáticamente.
-- **Cuidado con el plan gratuito de GitHub**: 1 GB storage / 1 GB bandwidth/mes.
-  Con ~525 MB ya se usa la mitad del storage. Política:
-  1. No meter datasets intermedios redundantes (borrar y regenerar en vez de
-     acumular).
-  2. Si `processed/` crece, mover datasets históricos a un bucket (S3/MinIO) o
-     a HuggingFace datasets, y guardar en git solo un `manifest` + `punto de
-     montaje` documentado en `config.py`.
-  3. Considerar activar Git LFS pro / reglas de almacenamiento si el repo
-     académico crece (checkout de datos por rol).
-- **`.gitignore`** excluye entornos, caches y secretos; los datos NO están ahí
-  (van por LFS).
+- `data/**` y `models/**` se almacenan como blobs normales de Git.
+- La historia usa blobs normales de Git para que los clones y los cambios
+  futuros no dependan de filtros, hooks ni almacenamiento externo.
+- Los datasets y modelos que se regeneran deben conservar su script de origen,
+  manifest y parámetros de ejecución. No se deben acumular copias redundantes.
+- Si el repositorio crece demasiado, la alternativa futura será almacenar los
+  datasets fuera de Git y versionar únicamente un manifest documentado; no se
+  reintroducirá LFS automáticamente.
+- **`.gitignore`** excluye entornos, caches y secretos; los datos no se ignoran
+  porque forman parte de los artefactos versionados del proyecto.
 
 ## 6. Reproducibilidad y versionado de resultados
 
@@ -204,9 +178,8 @@ Ordenados por lo que más duele hoy:
    (y `pytest` una vez exista).
 3. **Resolver `trufi_ds/stages/`** — poblarlo o eliminarlo; hoy son paquetes
    vacíos que sugieren una estructura que no existe.
-4. **Unificar el almacenamiento de artefactos** (§5): hoy conviven punteros LFS
-   y blobs normales en `models/`, y hay que verificar que los objetos LFS
-   realmente se subieron.
+4. **Unificar el almacenamiento de artefactos** (§5): los modelos y datasets
+  deben mantenerse como blobs normales en `models/` y `data/`.
 5. **Integrar a `main`** las etapas 2 a 6, que viven en
    `claude/laughing-rubin-ih0aud`.
 
