@@ -1,0 +1,25 @@
+columna,tipo_polars,n_nulos,pct_nulos,rango,descripcion,fuente
+date,String,0,0.0,n/a,"",""
+lat_orig,Float64,0,0.0,-31.4231 – 13.7489,Latitud del punto de origen de la consulta,85 CSV Trufi App
+lon_orig,Float64,0,0.0,-89.034 – 104.8773,Longitud del punto de origen de la consulta,85 CSV Trufi App
+lat_dest,Float64,0,0.0,-21.5789 – 45.4741,Latitud del punto de destino de la consulta,85 CSV Trufi App
+lon_dest,Float64,0,0.0,-74.0039 – 9.0815,Longitud del punto de destino de la consulta,85 CSV Trufi App
+userID,String,0,0.0,n/a,Identificador único de instalación de la app,85 CSV Trufi App
+distancia,Float64,0,0.0,300.0772 – 18877059.2847,Distancia geodésica haversine entre origen y destino (metros),85 CSV Trufi App
+origin_municipio,String,0,0.0,n/a,Municipio donde se realizó la consulta (origen),85 CSV Trufi App
+dest_municipio,String,0,0.0,n/a,Municipio de destino de la consulta,85 CSV Trufi App
+hour,Int64,0,0.0,0.0 – 23.0,Hora local del día (0–23) en que se realizó la consulta,85 CSV Trufi App
+day_of_week,Int64,0,0.0,0.0 – 6.0,"Día de la semana (0=lunes en Python, verificar por lote)",85 CSV Trufi App
+day_of_month,Int64,0,0.0,1.0 – 31.0,Día del mes (1–31),85 CSV Trufi App
+weekend,Int64,0,0.0,0.0 – 1.0,"1 si es fin de semana, 0 si es día hábil",85 CSV Trufi App
+source_file,String,0,0.0,n/a,Nombre del archivo CSV de origen (linaje),Derivada
+source_batch,String,0,0.0,n/a,Lote de exportación: lote_original | lote_2024_nuevo,Derivada
+source_encoding,String,0,0.0,n/a,Codificación detectada: utf-8 | latin-1,Derivada
+year_week_number,String,1765898,91.608,n/a,Número de semana del año — SOLO en lote_2024_nuevo (100% nulo en lote_original),85 CSV Trufi App
+time_of_day,String,1765898,91.608,n/a,Categoría textual de la hora — SOLO en lote_2024_nuevo,85 CSV Trufi App
+ts,"Datetime(time_unit='us', time_zone=None)",0,0.0,n/a,Marca de tiempo de la consulta (parseada de 'date'),Derivada
+year,Int32,0,0.0,2022.0 – 2024.0,Año ISO de la semana de la consulta,Derivada
+week,Int32,0,0.0,1.0 – 52.0,Número de semana ISO (1–53),Derivada
+flag_coord_cero,Boolean,0,0.0,n/a,"",""
+flag_coord_imposible,Boolean,0,0.0,n/a,"",""
+flag_fuera_eje,Boolean,0,0.0,n/a,"",""

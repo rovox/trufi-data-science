@@ -234,3 +234,51 @@ incorporarse la Etapa 1 como notebooks).
   Stage 3 real del proyecto en `main`. El contenido de la rama sin integrar
   queda documentado como superado para este propósito, no fusionado ni
   depurado como parte de este trabajo.
+
+# Bitácora de decisiones — trufi-data-science
+# (reiniciada en refactor/crisp-dm-restart — registro anterior en DECISIONES_ARCHIVO_2026-09.md)
+
+## Etapa 1 · Comprensión de datos (EDA completo)
+
+### D-001 · 2026-09-26 — Un solo notebook narrado, no siete
+
+- **Decisión**: el EDA completo vive en `notebooks/01_comprension_datos.ipynb`; si crece demasiado se agrega `02_comprension_datos_ext.ipynb`, sin reestructurar a 7 notebooks.
+- **Por qué**: el pipeline anterior ya validó que un solo notebook narrado es más coherente que fragmentar en sub-notebooks por subsección. La spec de referencia propone 7 pero es una guía, no una restricción.
+
+### D-002 · 2026-09-26 — Grupos de esquema en CSV: 2 grupos distintos
+
+- **Decisión**: los 6 archivos del lote 2024 (2024-04-29 → 2024-06-09) tienen un esquema distinto (columnas en inglés + year_week_number + time_of_day). Se normaliza a nombres canónicos en inglés.
+- **Evidencia**: `reports/01_data_understanding/grupos_esquema.json`
+
+### D-003 · 2026-09-26 — Codificación Latin-1 en lote 2024
+
+- **Decisión**: los mismos 6 archivos del lote 2024 requieren fallback Latin-1 (caracteres acentuados en `dest_municipio`). Se detecta automáticamente con `utils.read_csv_safe`.
+- **Evidencia**: `reports/01_data_understanding/reporte_codificacion.csv`
+
+### D-004 · 2026-09-26 — Nulidad estructural en year_week_number y time_of_day
+
+- **Decisión**: `year_week_number` y `time_of_day` son 100% nulos en `lote_original`. Tipo: ESTRUCTURAL (columna no existe en ese lote). NO se imputan.
+- **Implicación**: no se pueden usar como variables de feature sin restricción al lote 2024.
+
+### D-005 · 2026-09-26 — Clasificación espacial de 3 vías
+
+- **Decisión**: distinguir 3 categorías en las coordenadas de origen:
+  (1) coord cero (0,0) — bug GPS, (2) coord imposible (fuera de Bolivia) — error real,
+  (3) fuera del eje pero dentro de Bolivia — viajes interurbanos legítimos.
+- **En preparación**: (1) y (2) → eliminar; (3) → conservar con flag `fuera_eje`.
+
+### D-006 · 2026-09-26 — distancia = haversine en metros
+
+- **Decisión**: `distancia` es distancia geodésica haversine en metros (correlación ≥0.999 contra recálculo). No se reinterpreta como distancia de red.
+- **Evidencia**: `reports/01_data_understanding/distancia_verificacion_unidad.csv`
+
+### D-007 · 2026-09-26 — Semanas faltantes: no imputar
+
+- **Decisión**: el hueco estructural de semanas sin datos se documenta, no se imputa.
+- **Evidencia**: `reports/01_data_understanding/semanas_faltantes.csv`
+
+### D-008 · 2026-09-26 — Umbral de anomalía de usuarios: ≥ 2 señales activas
+
+- **Decisión**: un usuario se marca como anómalo si activa ≥ 2 de 6 señales (volumen >1000, tasa >50/día, dispersión >200 celdas, ráfaga >100/día, rutina <5% OD repetidos con >100 consultas, intervalo mediano <60 seg).
+- **Implicación en preparación**: filtrar o ponderar sus consultas antes de agregar a celda H3.
+- **Evidencia**: `reports/01_data_understanding/usuarios_anomalos.csv`
