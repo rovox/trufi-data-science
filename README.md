@@ -10,40 +10,60 @@ transporte público.
 | Stage | Estado |
 |---|---|
 | 0 · Ingesta (`data/raw/`, GTFS) | ✅ done |
-| 1 · Data understanding (auditoría → H3) | ✅ done |
+| 1 · Data understanding (`notebooks/01_comprension_datos.ipynb`) | ✅ done |
 | 2 · Data preparation (7.3) | ✅ done |
-| 3 · Modelado (7.4) | ✅ done |
-| 4 · Evaluación (7.5) | ✅ done |
-| 5 · Despliegue (7.6) | ✅ done |
-| 6 · Conclusiones y recomendaciones (2.8) | ✅ done |
+| 3 · Modelado — Hueco C: Kontur + GTFS + Poisson (7.4) | 🚧 in progress (`notebooks/06`-`07` listos, `08`-`13` scaffolded) |
+| 4 · Evaluación (7.5) | ⏳ not started |
+| 5 · Despliegue (7.6) | ⏳ not started |
+| 6 · Conclusiones y recomendaciones (2.8) | ⏳ not started |
 
 Bitácora completa de lo ejecutado en cada etapa: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 Estrategia de organización y convenciones: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Decisiones metodológicas de todo el proyecto: [`DECISIONES.md`](DECISIONES.md).
 
-## Resumen de hallazgos (Stage 1)
+> **Nota**: versiones previas de este README describían las etapas 3–6 como
+> completas (Random Forest/XGBoost + FastAPI). Ese trabajo vive únicamente en
+> la rama sin integrar `claude/laughing-rubin-ih0aud` — nunca se fusionó a
+> `main`. La etapa 3 fue redefinida como el análisis Kontur/Poisson descrito
+> abajo; ver `DECISIONES.md` para el porqué.
+
+## Resumen de hallazgos (Stage 1 — Comprensión de datos, 7.2)
+
+Reconstruido como un único notebook (`notebooks/01_comprension_datos.ipynb`);
+los antiguos `src/01_audit_schema.py` … `src/08_h3_preview.py` fueron
+retirados — ver `DECISIONES.md` § Etapa 1.
 
 - **1.927.675 consultas** consolidadas sin pérdida de filas (85 CSVs → `data/interim/queries.parquet/`).
 - Cobertura real: **2022-09-12 → 2024-06-03**, con un hueco estructural de 7 semanas (11-mar → 22-abr 2024).
 - `distancia` es **haversine en metros** (correlación 0.999997 contra recálculo).
-- `userID` es de **nivel instalación** → el target individual es viable; complementar con agregación H3 (router centralización: los 10 celdas origen concentran 42% de la demanda).
+- `userID` es de **nivel instalación** → el target individual es viable; complementar con agregación H3 (fuerte centralización: los 10 celdas origen concentran 42% de la demanda).
 - Anomalías de exportación resueltas: 6 archivos con nombres de columnas en inglés + codificación Latin-1.
+- **Variable objetivo**: conteo de consultas por celda H3 r8 — la base de la
+  que derivan tanto `indicators_table.parquet` (Etapa 2) como
+  `panel_hueco_c.parquet` (Etapa 3).
 
 Reportes completos en [`reports/01_data_understanding/README.md`](reports/01_data_understanding/README.md).
 
-## Resumen de hallazgos (Stage 3 — Modelado, 7.4)
+## Stage 3 — Modelado (7.4): Hueco C, en progreso
 
-- Panel de modelado: **124.160 observaciones** (1.552 celdas × 84 semanas,
-  grilla completa; ausencia = 0 consultas, no dato faltante).
-- Cuatro modelos comparados con validación por ventanas deslizantes
-  (nunca k-fold aleatorio): Ridge, Lasso, Random Forest, XGBoost.
-- **Modelo final: Random Forest** — MAE test = 10.19 consultas/semana
-  (R² = 0.656), supera a la línea base estacional (MAE 11.05) y a XGBoost
-  (MAE 13.85, peor que la línea base).
-- Hallazgo relevante: Ridge/Lasso extrapolan de forma inestable en escala
-  log1p sobre la tendencia de crecimiento — motivo documentado, no un error
-  de implementación (detalle en `reports/03_modeling/02_model_comparison.md`).
+Análisis explicativo (no predictivo): ¿las celdas H3 con población pero sin
+cobertura GTFS tienen una tasa de consultas por habitante menor que las
+celdas cubiertas, controlando por distancia al centro? GLM Poisson con
+offset `log(población)`, no un modelo de machine learning — ver
+`DECISIONES.md` para la justificación completa.
 
-Reportes completos en [`reports/03_modeling/README.md`](reports/03_modeling/README.md).
+- `notebooks/06_panel_celdas.ipynb` — panel de consultas por celda H3 r8,
+  todo el periodo (**listo**, ejecutado: 1.552 celdas, 1.906.360 consultas
+  incluidas).
+- `notebooks/07_poblacion_kontur.ipynb` — población Kontur por celda,
+  releases 2023-11-01 y 2022-06-30 (**listo**, ejecutado: 2.447 celdas en el
+  bbox metropolitano).
+- `notebooks/08`-`13` — cobertura GTFS por celda, integración del panel, EDA,
+  modelo Poisson, sensibilidad y figuras finales (**scaffolded**, pendientes
+  de implementar).
+
+Sin resultados de modelo todavía — se documentarán aquí y en
+`reports/03_modeling/` cuando el notebook 11 esté implementado.
 
 ## Resumen de hallazgos (Stage 4 — Evaluación, 7.5)
 
@@ -99,8 +119,8 @@ Reporte completo en [`reports/06_conclusions/README.md`](reports/06_conclusions/
 ## Stack
 
 - Python ≥ 3.12, gestión con [`uv`](https://docs.astral.sh/uv/)
-- `polars`, `duckdb`, `pyarrow` (procesamiento) · `h3`, `geopandas`, `shapely` (espacial)
-- `scikit-learn`, `xgboost`, `shap` (modelado) · `fastapi`, `uvicorn` (despliegue) · `pytest`, `ruff` (dev)
+- `polars`, `duckdb`, `pyarrow` (procesamiento) · `h3`, `geopandas`, `shapely`, `pyogrio` (espacial)
+- `statsmodels` (regresión Poisson/GLM, Hueco C) · `scikit-learn` (dev) · `jupyterlab` (notebooks) · `pytest`, `ruff` (dev)
 - Código y modelos versionados en Git; los datos se mantienen fuera del repositorio (`data/`)
 
 ## Cómo reproducir
@@ -109,53 +129,45 @@ Reporte completo en [`reports/06_conclusions/README.md`](reports/06_conclusions/
 uv sync                 # instala dependencias desde uv.lock
 # Coloca los datos externos en ./data/ antes de ejecutar el pipeline.
 
-# Stage 1 — Data understanding
-for i in 01 02 03 04 05 06 07 08; do uv run src/${i}_*.py; done
+uv run jupyter lab
 
-# Stage 2 — Data preparation (7.3)
+# Stage 1 — Comprensión de datos (7.2): notebooks/01_comprension_datos.ipynb
+
+# Stage 2 — Data preparation (7.3), scripts:
 for i in 09 10 11 12 13 14 15 16 17; do uv run src/${i}_*.py; done
 
-# Stage 3 — Modelado (7.4)
-for i in 18 19 20; do uv run src/${i}_*.py; done
-
-# Stage 4 — Evaluación (7.5)
-for i in 21 22 23; do uv run src/${i}_*.py; done
-
-# Stage 5 — Despliegue (7.6)
-for i in 24 25; do uv run src/${i}_*.py; done
+# Stage 3 — Modelado (7.4), Hueco C: notebooks/06_*.ipynb .. 13_*.ipynb
 ```
 
-Para levantar el prototipo de predicción (opcional):
-```bash
-uv run uvicorn trufi_ds.api:app --reload --port 8000
-curl "http://127.0.0.1:8000/predict?cell=888b2c8ae5fffff"
-```
-
-Cada script escribe su reporte en la carpeta `reports/` correspondiente (o su
-dataset en `data/interim/` / `data/processed/`). Requiere los datos en
-`data/` (ver §Datos).
+Cada script/notebook escribe su reporte en la carpeta `reports/`
+correspondiente (o su dataset en `data/interim/` / `data/processed/`).
+Requiere los datos en `data/` (ver §Datos). Decisiones metodológicas de todo
+el proyecto: [`DECISIONES.md`](DECISIONES.md).
 
 ## Estructura del repo
 
 ```
 ├── data/                     # datos locales, ignorados por Git
 │   ├── raw/                  #   85 CSVs semanales + GTFS (solo lectura)
-│   ├── interim/              #   queries.parquet + h3_*.parquet
-│   ├── processed/            #   (resultados de preparation)
-│   ├── external/             #   GTFS MDB
+│   ├── interim/              #   queries.parquet + h3_*.parquet + interinos de Hueco C
+│   ├── processed/            #   resultados de preparation + panel_hueco_c.parquet
+│   ├── external/             #   GTFS MDB + Kontur population (.gpkg.gz)
 │   └── _archive/             #   archivo zip original
-├── models/                   # modelos entrenados, *.pkl
-├── src/                      # scripts por tarea (NN_*)
+├── src/                      # scripts por tarea (NN_*, solo etapa 2 ya)
 │   └── trufi_ds/
-│       └── api.py            # servicio de predicción (FastAPI, Sección 7.6)
+│       ├── config.py          # paths y parámetros centralizados
+│       ├── io.py              # lectores/escritores, schemas, manifest
+│       ├── spatial.py         # proyección local, KD-tree GTFS, haversine (etapa 3)
+│       └── notebook_setup.py  # imports compartidos + utilidades de notebooks (etapa 1)
+├── notebooks/
+│   ├── 01_comprension_datos.ipynb  # etapa 1 (Comprensión de datos)
+│   └── 06-13                  # etapa 3 (Hueco C)
 ├── reports/
 │   ├── 01_data_understanding/
 │   ├── 02_data_preparation/
-│   ├── 03_modeling/
-│   ├── 04_evaluation/
-│   ├── 05_deployment/
-│   └── 06_conclusions/
+│   └── 03_modeling/           # etapa 3 (Hueco C), en progreso
 ├── docs/                     # ARCHITECTURE.md (estrategia), ROADMAP.md (bitácora)
+├── DECISIONES.md             # bitácora de decisiones de todo el proyecto
 ├── pyproject.toml
 └── uv.lock
 ```

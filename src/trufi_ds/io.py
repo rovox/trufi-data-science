@@ -3,12 +3,16 @@
 Centralizes schema definitions and ensures consistent data handling.
 """
 
+import gzip
 import hashlib
 import json
+import shutil
 import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
+import geopandas as gpd
 import polars as pl
 
 from trufi_ds.config import (
@@ -135,6 +139,29 @@ def read_gtfs_routes(gtfs_dir: Path) -> pl.DataFrame:
     """
     routes_path = gtfs_dir / "routes.txt"
     return pl.read_csv(routes_path)
+
+
+def read_kontur_population(gpkg_gz_path: Path) -> gpd.GeoDataFrame:
+    """Read a gzipped Kontur Population GeoPackage.
+
+    Kontur ships `.gpkg.gz`; GeoPackage readers need a real file, so this
+    decompresses to a temp file before reading.
+
+    Args:
+        gpkg_gz_path: Path to the `.gpkg.gz` file (see `config.KONTUR_*_GPKG_GZ`).
+
+    Returns:
+        GeoDataFrame with columns `h3`, `population`, `geometry` (CRS EPSG:3857).
+    """
+    with tempfile.NamedTemporaryFile(suffix=".gpkg", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+        with gzip.open(gpkg_gz_path, "rb") as f_in:
+            shutil.copyfileobj(f_in, tmp)
+
+    try:
+        return gpd.read_file(tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -13,15 +13,24 @@ Monografía del Diplomado en Ciencia de Datos (UMSS) sobre los logs de consultas
 de rutas de **Trufi App — Área Metropolitana de Cochabamba**. La estructura
 sigue CRISP-DM y se alinea con las secciones exigidas por la guía UMSS.
 
-| Etapa del repo | Sección guía UMSS | Scripts | Reportes | Estado |
+| Etapa del repo | Sección guía UMSS | Scripts/Notebooks | Reportes | Estado |
 |---|---|---|---|---|
 | 0 · Ingesta | — | — | — | ✅ |
-| 1 · Comprensión de los datos | 7.2 | `01`–`08` | `reports/01_data_understanding/` | ✅ |
+| 1 · Comprensión de los datos | 7.2 | `notebooks/01_comprension_datos.ipynb` | `reports/01_data_understanding/` | ✅ |
 | 2 · Preparación de los datos | 7.3 | `09`–`17` | `reports/02_data_preparation/` | ✅ |
-| 3 · Modelado | 7.4 | `18`–`20` | `reports/03_modeling/` | ✅ |
-| 4 · Evaluación y resultados | 7.5 | `21`–`23`, `26`, `28` | `reports/04_evaluation/` | ✅ |
-| 5 · Despliegue | 7.6 | `24`–`25`, `27` + `trufi_ds/api.py` | `reports/05_deployment/` | ✅ |
-| 6 · Conclusiones y recomendaciones | 2.8 | — | `reports/06_conclusions/` | ✅ |
+| 3 · Modelado (Hueco C) | 7.4 | `notebooks/06`–`13` | `reports/03_modeling/` | 🚧 `06`-`07` listos |
+| 4 · Evaluación y resultados | 7.5 | — | `reports/04_evaluation/` | ⏳ no iniciada |
+| 5 · Despliegue | 7.6 | — | `reports/05_deployment/` | ⏳ no iniciada |
+| 6 · Conclusiones y recomendaciones | 2.8 | — | `reports/06_conclusions/` | ⏳ no iniciada |
+
+> **Nota sobre las filas 3–6 de versiones anteriores de este documento**:
+> describían un stage 3-6 basado en Random Forest/XGBoost (scripts `18`-`28`,
+> `trufi_ds/api.py`) como completo. Ese trabajo existe únicamente en la rama
+> sin integrar `claude/laughing-rubin-ih0aud`, nunca en `main`. La etapa 3 fue
+> redefinida (ver `DECISIONES.md`); su detalle reemplaza la sección "Etapa 3"
+> más abajo. Las etapas 4-6 documentadas después de esa sección describen ese
+> trabajo anterior y no se han vuelto a ejecutar sobre el nuevo stage 3 —
+> quedan aquí como referencia histórica, no como estado actual.
 
 ---
 
@@ -42,25 +51,29 @@ Drive) + feed GTFS de Cochabamba.
 ## Etapa 1 · Comprensión de los datos (7.2)
 
 **Objetivo**: entender qué contienen los 85 CSVs antes de tocarlos, y decidir
-el tipo de target viable.
+el tipo de target viable. **Reconstruida como un único notebook**
+(`notebooks/01_comprension_datos.ipynb`, reemplaza a los antiguos
+`src/01_audit_schema.py` … `src/08_h3_preview.py`, retirados — ver
+`DECISIONES.md` § Etapa 1). Cifras verificadas por re-ejecución del nuevo
+notebook; coinciden exactamente con las del pipeline de scripts original.
+Reportes deliberadamente ligeros — solo `README.md` + `schema_diff.csv` +
+figuras, el detalle vive en el notebook.
 
-| Script | Qué hizo | Hallazgo clave |
+| Sección del notebook | Qué hace | Hallazgo clave |
 |---|---|---|
-| `01_audit_schema.py` | Auditó el schema de los 85 archivos | 6 archivos traían cabeceras en inglés y codificación Latin-1 → se resolvió con `read_csv_safe` |
-| `02_consolidate.py` | Consolidó todo a `data/interim/queries.parquet/` (Hive `year=/week=`) | **1.927.675 filas**, suma exacta de los 85 CSVs (sin pérdida ni duplicación) |
-| `03_quality.py` | Nulos, duplicados, rangos | 0 nulos en `userID`; 104 filas dentro de grupos exactamente duplicados; 137 duplicados `userID+ts` con OD distinto (consultas repetidas reales) |
-| `04_validate_haversine.py` | Determinó qué es la columna `distancia` | Correlación **0.999997** con el recálculo → es distancia **geodésica en metros**, no de red |
-| `05_user_analysis.py` | Comportamiento por `userID` | Es un ID **a nivel instalación** (mediana 5 consultas, 78% de usuarios vuelven) → target individual viable |
-| `06_temporal_coverage.py` | Cobertura temporal | **2022-09-12 → 2024-06-03**, con un hueco estructural de **7 semanas** (2024-03-11 → 2024-04-22) |
-| `07_spatial.py` | EDA espacial | **1.924.161 (99,82%)** de consultas dentro del bbox metropolitano |
-| `08_h3_preview.py` | Prueba de teselación H3 | Fuerte centralización; se elige explorar resoluciones 7/8/9 |
+| §2-3 Auditoría + consolidación | Esquema + consolidación a Parquet | 6 archivos traían cabeceras en inglés y codificación Latin-1 → se resuelve con `read_csv_safe`; **1.927.675 filas**, suma exacta de los 85 CSVs |
+| §4-5 Calidad + `distancia` | Nulos, duplicados, validación de `distancia` | 0 nulos en `userID`; 104 duplicados exactos; 137 duplicados `userID+ts` (repetidas reales); `distancia` correlaciona **0.999997** con el recálculo haversine → geodésica en metros |
+| §6-7 Cobertura + `userID` | Cobertura temporal/espacial + comportamiento `userID` | Hueco estructural de **7 semanas** (2024-03-11 → 2024-04-22); 15 filas con coordenadas físicamente imposibles (distinto de las 3.514 fuera de bbox); `userID` es **a nivel instalación** → target individual viable |
+| §8 Proporciones | Distribución por municipio, hora, fin de semana | Cochabamba 86.2% de origen; pico de consultas 13-15h |
+| §9-10 H3 + resumen | Agregación H3 (variable objetivo) + síntesis final | Fuerte centralización (top-10 celdas = 42% de la demanda de origen); 1.523 celdas de origen, 1.840 de destino; regenera `README.md` |
 
-**Decisiones que salieron de esta etapa** (§9 de su README):
+**Decisiones que salieron de esta etapa** (ver `DECISIONES.md` § Etapa 1 para
+el detalle completo):
 1. Eliminar las filas exactamente duplicadas; conservar los duplicados
    `userID+ts` para resolverlos por sesionización.
 2. Tratar el hueco de 7 semanas como estructural (no imputar).
-3. Usar agregación espacial H3 como complemento del target individual, dada la
-   centralización observada.
+3. Usar agregación espacial H3 como variable objetivo base, complementando el
+   target individual, dada la centralización observada.
 
 **Salidas**: `data/interim/queries.parquet/`, `data/interim/h3_*.parquet`,
 `reports/01_data_understanding/`.
@@ -98,62 +111,31 @@ cronológico (no aleatorio) por no estacionariedad.
 
 ---
 
-## Etapa 3 · Modelado (7.4)
+## Etapa 3 · Modelado (7.4) — Hueco C: Kontur + GTFS + Poisson
 
-**Objetivo**: predecir el volumen semanal de consultas originadas por celda
-(`n_queries_orig`) en función de condiciones territoriales, estacionales y de
-demanda pasada.
+**Objetivo (redefinido, ver `DECISIONES.md`)**: no predecir volumen de
+consultas, sino **explicar** si las celdas H3 con población pero sin
+cobertura GTFS tienen una tasa de consultas por habitante menor que las
+celdas cubiertas, controlando por distancia al centro (Plaza 14 de
+Septiembre). GLM Poisson con offset `log(población)`, no un modelo de
+machine learning — reemplaza el plan original de esta etapa (Random
+Forest/XGBoost, ver nota al inicio de este documento).
 
-| Script | Qué hizo | Resultado |
+| Notebook | Qué hace | Estado |
 |---|---|---|
-| `18_model_training.py` | Ingeniería de variables + entrenamiento de 4 modelos | Panel completo 1.552 celdas × 84 semanas = 130.368 filas → **124.160** tras recortar las 4 primeras semanas (sin historia de rezago); train 111.744 / test 12.416 |
-| `19_model_comparison.py` | Métricas MAE/RMSE/R² y figuras predicho-vs-observado | **Random Forest** mejor: MAE test 10,19 · R² 0,656 |
-| `20_feature_importance.py` | Coeficientes, Gini y SHAP | Dominan las variables autoregresivas; `dist_center_km` y `dist_gtfs_mean_orig_m` aportan la señal territorial |
+| `06_panel_celdas.ipynb` | Agrega `prep_04_h3.parquet` a celda H3 r8 × todo el periodo (no celda × semana) | ✅ ejecutado: 1.552 celdas, 1.906.360 consultas incluidas |
+| `07_poblacion_kontur.ipynb` | Población Kontur (releases 2023-11-01 y 2022-06-30) por celda, resolución H3 verificada en código | ✅ ejecutado: 2.447 celdas en bbox metropolitano (1.269.371 hab. en 2023, 1.203.722 en 2022) |
+| `08_cobertura_gtfs_celdas.ipynb` | Distancia de cada celda (centroide) a la ruta GTFS más cercana, vía `trufi_ds.spatial` | 🚧 scaffolded |
+| `09_integrar_panel.ipynb` | Une 06-08, calcula `dist_centro_km`, documenta exclusiones | 🚧 scaffolded |
+| `10_eda_tasa_habitante.ipynb` | EDA de tasa por habitante, mapa volumen vs. tasa | 🚧 scaffolded |
+| `11_modelo_poisson.ipynb` | GLM Poisson (crudo/ajustado), chequeo de sobredispersión | 🚧 scaffolded |
+| `12_sensibilidad.ipynb` | Kontur 2022 vs 2023, centro alterno, umbral alterno | 🚧 scaffolded |
+| `13_figuras_finales.ipynb` | Figuras/tablas finales formato UMSS | 🚧 scaffolded |
 
-**Decisiones propias de esta etapa** (además de las heredadas de 7.3):
+Decisiones metodológicas (release de población, centro exógeno, umbral GTFS,
+elección de modelo) documentadas en `DECISIONES.md`, no aquí.
 
-1. **Grilla completa celda × semana**: la ausencia de una fila en
-   `indicators_table` significa *cero consultas*, no dato faltante. Se completa
-   la grilla para que los rezagos y la validación temporal sean correctos.
-2. **Exclusión explícita de variables con fuga**: `n_users_orig`,
-   `n_sessions_orig` y todas las del lado destino/derivadas (`n_queries_total`,
-   `od_balance`, …) son manifestaciones simultáneas de la misma demanda.
-3. **Transformación `log1p`/`expm1`** del objetivo por su asimetría extrema
-   (mediana 3, media 45, máximo 3.663 consultas/semana).
-4. **Validación por ventanas deslizantes** (4 pliegues, ventana de 13 semanas),
-   nunca k-fold aleatorio.
-5. **Techo de seguridad en la inversa `expm1`**: Ridge/Lasso extrapolan de forma
-   inestable sobre la tendencia; sin techo, un error pequeño en escala
-   logarítmica se vuelve astronómico.
-
-**Advertencia metodológica importante**: el hueco de 7 semanas (2024-W11 a W17)
-cae **dentro de la ventana de prueba**, no del entrenamiento — las últimas 8
-semanas *observadas* son 2024-W09, W10 y luego W18 a W23. Como los rezagos se
-construyen sobre semanas observadas, `lag1` en 2024-W18 apunta en realidad a
-2024-W10. Las variables autoregresivas, que son las más importantes del modelo,
-llegan debilitadas justo donde se mide el desempeño: parte de la caída
-train→test se explica por esto y no por sobreajuste. Esto debe tenerse en cuenta
-al interpretar las métricas en 7.5.
-
-**Hiperparámetros seleccionados por CV**: Ridge α=0,1 · Lasso α=0,1 · Random
-Forest `max_depth=10` (300 árboles) · XGBoost `max_depth=6`, `lr=0,1`.
-
-**Resultados en test** (últimas 8 semanas, nunca vistas):
-
-| Modelo | MAE | RMSE | R² |
-|---|---|---|---|
-| **Random Forest** | **10,19** | **80,70** | **0,656** |
-| Base media móvil 4 semanas | 11,05 | 85,70 | 0,613 |
-| Base ingenua (persistencia) | 11,30 | 91,90 | 0,555 |
-| XGBoost | 13,85 | 102,82 | 0,442 |
-| Lasso | 44,03 | 520,76 | −13,31 |
-| Ridge | 48,97 | 559,13 | −15,49 |
-
-**Modelo final: Random Forest**, elegido por menor error en test, menor brecha
-train/test y por ser el único que supera de forma consistente a las líneas base.
-XGBoost quedó descartado pese a su buen CV: en test es peor que la línea base.
-
-**Salidas**: `data/processed/model_*.parquet`, `models/*.pkl`,
+**Salidas** (cuando la etapa se complete): `data/processed/panel_hueco_c.parquet`,
 `reports/03_modeling/`.
 
 ---
@@ -308,15 +290,17 @@ Registrados de forma explícita para no confundir lo planeado con lo hecho:
 
 ```bash
 uv sync
+uv run jupyter lab
 
-for i in 01 02 03 04 05 06 07 08; do uv run src/${i}_*.py; done   # 7.2
+# 7.2 — notebooks/01_comprension_datos.ipynb (desde jupyter lab)
+
 for i in 09 10 11 12 13 14 15 16 17; do uv run src/${i}_*.py; done # 7.3
-for i in 18 19 20; do uv run src/${i}_*.py; done                   # 7.4
-for i in 21 22 23; do uv run src/${i}_*.py; done                   # 7.5
-for i in 24 25; do uv run src/${i}_*.py; done                      # 7.6
-for i in 26 27 28; do uv run src/${i}_*.py; done                   # 7.5.5 y 7.6.3
+
+# 7.4 (Hueco C) — notebooks/06_*.ipynb .. 13_*.ipynb (en orden, desde jupyter lab)
 ```
 
-Cada script escribe su reporte en la carpeta `reports/` de su etapa y sus
-datasets en `data/`. El orden importa: cada etapa consume la salida de la
-anterior.
+Cada script/notebook escribe su reporte en la carpeta `reports/` de su etapa y
+sus datasets en `data/`. El orden importa: cada etapa consume la salida de la
+anterior. Los comandos `for i in 18..28` de versiones anteriores de este
+documento correspondían al stage 3-6 RF/XGBoost que solo existe en la rama sin
+integrar `claude/laughing-rubin-ih0aud` — no son reproducibles en `main`.

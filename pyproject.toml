@@ -20,6 +20,9 @@ dependencies = [
     "jupyter>=1.1",
     "mobility-db-api>=0.5.1",
     "requests>=2.34.2",
+    "statsmodels>=0.15.0",
+    "jupyterlab>=4.6.3",
+    "pyogrio>=0.13.0",
 ]
 
 [dependency-groups]
@@ -29,9 +32,6 @@ dev = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Stage-1 scripts are frozen reference outputs; legacy lints are tolerated.
-"src/01_audit_schema.py" = ["BLE001", "FURB192"]
-"src/08_h3_preview.py" = ["BLE001"]
 # Stage-2 utility scripts (user-facing CLIs with intentional broad exception handling)
 "src/generate_manifest.py" = ["BLE001", "DTZ005"]
 "src/gtfs_download.py" = ["BLE001"]
