@@ -1,0 +1,11 @@
+verificacion,resultado,detalle
+suma query_count = consultas limpias,OK,"1,918,840 vs 1,918,840"
+h3_cell sin duplicados,OK,"1,277 celdas"
+sin solapamiento de celdas train/test,OK,0 celdas compartidas
+population >= 10 en modelo,OK,mín = 10
+query_count >= 0,OK,mín = 0
+dist_plaza_km > 0,OK,mín = 0.511
+pop_ring1 >= 0 y pop_ring2 >= 0,OK,—
+pop_ring1 >= population (solo vale con grid_disk; aquí grid_ring),INFO,14 celdas del modelo con pop_ring1 < population (esperable: la corona excluye la celda central)
+sin nulos en ninguna columna,OK,0 nulos
+block_id no nulo,OK,—

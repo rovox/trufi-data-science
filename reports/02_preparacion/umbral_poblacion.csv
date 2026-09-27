@@ -1,0 +1,4 @@
+grupo,celdas,consultas,poblacion
+in_model (population >= 10),1087,1918628,1166068
+1 <= population < 10,153,121,430
+population = 0 con consultas (polos),37,91,0
