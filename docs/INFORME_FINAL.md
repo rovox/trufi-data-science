@@ -215,9 +215,17 @@ Sí. Cada notebook **sobrescribe** sus salidas; ninguno agrega texto a un archiv
 - `queries.parquet` se borra antes de reescribirse.
 - La prueba no se reevalúa si `reports/04_evaluacion/resultados_prueba.csv` existe.
 
-Se verificó re-ejecutando los seis notebooks sobre el estado final. Solo cambian los metadatos de ejecución de los
-notebooks y el HTML del mapa, cuyos identificadores internos folium genera al azar. Los CSV, las decisiones y el
-resultado de la prueba quedan idénticos.
+**Cómo se verificó.** Se re-ejecutaron los seis notebooks varias veces sobre el estado final y se compararon con Git.
+La primera comparación mostró que algunas tablas cambiaban el **orden** de sus filas y que una cambiaba su
+**contenido**:
+- `resumen_por_municipio.csv`: una celda empatada entre dos municipios se asignaba al azar.
+- La figura LISA de la Etapa 1: las celdas empatadas cambiaban de orden y, con ellas, las permutaciones.
+
+Se corrigió agregando desempates explícitos y una semilla a LISA. En la última pasada no cambió ningún CSV, figura,
+decisión ni el resultado de la prueba. Solo cambian las marcas de tiempo de ejecución guardadas en los notebooks y el
+HTML del mapa, cuyos identificadores internos folium genera al azar sin cambiar el contenido. Una observación de
+auditoría (L5) cambia su texto según el estado: dice si ya existe el modelado y si los bloques de prueba coinciden con
+los de Git. El resultado sigue siendo OK.
 
 ---
 
