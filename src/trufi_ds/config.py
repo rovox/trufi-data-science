@@ -41,8 +41,9 @@ HUECO_C_REPORTS = REPORTS_DIR / "03_modeling"
 KONTUR_2023_GPKG_GZ = DATA_EXTERNAL / "kontur_population_BO_20231101.gpkg.gz"
 KONTUR_2022_GPKG_GZ = DATA_EXTERNAL / "kontur_population_BO_20220630.gpkg.gz"
 
-# Exogenous city-center reference point (not derived from query/population
-# data — see DECISIONES.md for why and its source).
+# Exogenous city-center reference point. Since iteration 2 (D-022) the
+# predictor uses the study-area centroid; the Plaza is kept for maps and as a
+# declared sensitivity variant.
 PLAZA_14_SEPTIEMBRE = {"lat": -17.393583, "lon": -66.157014}
 
 # Interim outputs (notebooks 01-03)
@@ -76,6 +77,10 @@ H3_RESOLUTIONS = [7, 8, 9]  # For sensitivity analysis
 # ─────────────────────────────────────────────────────────────────────────────
 # FILTERING THRESHOLDS
 # ─────────────────────────────────────────────────────────────────────────────
+# Maximum origin–destination distance of a valid query (D-020, iteration 2).
+# It filters queries only; it no longer shapes the study area (D-021).
+DIST_MAX_M = 50_000
+
 # Impossible jump detection
 JUMP_TIME_THRESHOLD_SEC = 120  # 2 minutes
 JUMP_DISTANCE_THRESHOLD_M = 11_000  # ~11 km

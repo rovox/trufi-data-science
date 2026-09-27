@@ -23,7 +23,7 @@ import shapely
 from scipy.spatial import cKDTree
 from shapely.geometry import MultiPoint, Polygon
 
-from trufi_ds.config import PLAZA_14_SEPTIEMBRE, UTM_EPSG
+from trufi_ds.config import UTM_EPSG
 
 H3_RES = 8
 BLOCK_RES = 6
@@ -37,7 +37,7 @@ RENAME_QUERIES = {
     "lon_dest": "lon_destination",
 }
 
-PREDICTORS = ["dist_plaza_km", "pop_ring1", "pop_ring2"]
+PREDICTORS = ["dist_centro_km", "pop_ring1", "pop_ring2"]
 CONTRAST = ["dist_stop_m", "gtfs_covered", "route_count_500m"]
 TARGETS = ["query_count", "user_count"]
 
@@ -184,11 +184,20 @@ def to_utm(lat: np.ndarray, lon: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return g.x.to_numpy(), g.y.to_numpy()
 
 
-def add_territorial_features(table: pl.DataFrame, kontur: pl.DataFrame, area: Polygon) -> pl.DataFrame:
-    """Predictors and geometry helpers derived only from Kontur and the exogenous Plaza.
+def area_center(area: Polygon) -> tuple[float, float]:
+    """Centroid (lat, lon) of the study area, computed in UTM 19S (D-022)."""
+    c = gpd.GeoSeries([area], crs="EPSG:4326").to_crs(UTM_EPSG).centroid.to_crs("EPSG:4326").iloc[0]
+    return float(c.y), float(c.x)
+
+
+def add_territorial_features(
+    table: pl.DataFrame, kontur: pl.DataFrame, area: Polygon, center: tuple[float, float]
+) -> pl.DataFrame:
+    """Predictors and geometry helpers derived only from Kontur and the area geometry.
 
     `pop_ring1`/`pop_ring2` use the population of *all* Kontur cells (also
-    outside the area) so edge cells are not underestimated.
+    outside the area) so edge cells are not underestimated. `dist_centro_km`
+    is measured to `center` (the area centroid, D-022).
     """
     cells = table["h3_cell"].to_list()
     lat, lon = cell_centroids(cells)
@@ -203,10 +212,55 @@ def add_territorial_features(table: pl.DataFrame, kontur: pl.DataFrame, area: Po
         pl.Series("y_utm", y),
         pl.Series("pop_ring1", ring_population(cells, pop, 1)),
         pl.Series("pop_ring2", ring_population(cells, pop, 2)),
-        pl.Series("dist_plaza_km", haversine_km(lat, lon, PLAZA_14_SEPTIEMBRE["lat"], PLAZA_14_SEPTIEMBRE["lon"])),
+        pl.Series("dist_centro_km", haversine_km(lat, lon, center[0], center[1])),
         pl.Series("block_id", [h3.cell_to_parent(c, BLOCK_RES) for c in cells]),
         pl.Series("edge_cell", dist_edge_m <= 1000.0),
     )
+
+
+def add_municipality(table: pl.DataFrame, queries_clean: pl.DataFrame, k_max: int = 30) -> pl.DataFrame:
+    """Municipality label per cell (for the B0.5 baseline).
+
+    Cells with queries take their modal `origin_municipio` (a location label
+    from Trufi's reverse geocoding, not a count). Cells without queries take
+    the most frequent label among the nearest labelled cells (`grid_disk`,
+    growing k); ties are broken alphabetically.
+    """
+    modal = (
+        queries_clean.with_columns(pl.col("origin_municipio").map_elements(fix_mojibake, return_dtype=pl.Utf8))
+        .group_by("h3_origin", "origin_municipio").len()
+        .sort(["h3_origin", "len", "origin_municipio"], descending=[False, True, False])
+        .group_by("h3_origin", maintain_order=True).first()
+    )
+    label = dict(zip(modal["h3_origin"].to_list(), modal["origin_municipio"].to_list(), strict=True))
+    out = []
+    for cell in table["h3_cell"].to_list():
+        if cell in label:
+            out.append(label[cell])
+            continue
+        found = "desconocido"
+        for k in range(1, k_max + 1):
+            near = [label[n] for n in h3.grid_ring(cell, k) if n in label]
+            if near:
+                counts = pd.Series(near).value_counts()
+                found = min(counts[counts == counts.max()].index)
+                break
+        out.append(found)
+    return table.with_columns(pl.Series("municipality", out))
+
+
+def add_distance_rings(table: pl.DataFrame) -> tuple[pl.DataFrame, np.ndarray]:
+    """Rings A1–A4 by quartiles of the block-mean `dist_centro_km` (quartiles over blocks with model cells)."""
+    blocks = table.group_by("block_id").agg(
+        pl.col("dist_centro_km").filter(pl.col("in_model")).mean().alias("block_dist_km"),
+        pl.col("dist_centro_km").mean().alias("block_dist_all_km"),
+    ).with_columns(pl.col("block_dist_km").fill_null(pl.col("block_dist_all_km")))
+    model_blocks = table.filter(pl.col("in_model"))["block_id"].unique()
+    cuts = np.quantile(blocks.filter(pl.col("block_id").is_in(model_blocks.implode()))["block_dist_km"].to_numpy(),
+                       [0.25, 0.5, 0.75])
+    blocks = blocks.with_columns(
+        pl.col("block_dist_km").cut(list(cuts), labels=["A1", "A2", "A3", "A4"]).cast(pl.Utf8).alias("distance_ring"))
+    return table.join(blocks.select("block_id", "distance_ring"), on="block_id", how="left"), cuts
 
 
 def add_gtfs_contrast(table: pl.DataFrame, gtfs_dir: Path, threshold_m: float = 500.0) -> pl.DataFrame:
@@ -289,10 +343,13 @@ def clean_queries(
 
 def build_mining_table(
     queries_clean: pl.DataFrame, kontur: pl.DataFrame, area: Polygon, gtfs_dir: Path,
-    coverage_m: float = 500.0, pop_min: int = 10,
+    center: tuple[float, float], coverage_m: float = 500.0, pop_min: int = 10,
 ) -> pl.DataFrame:
-    """T4 + T5 in one call (no `distance_ring`, which depends on the reference partition)."""
+    """T4 + T5 in one call: cells, territorial features, GTFS contrast, municipality, rings."""
     table = build_cell_table(queries_clean, kontur, area)
-    table = add_territorial_features(table, kontur, area)
+    table = add_territorial_features(table, kontur, area, center)
     table = add_gtfs_contrast(table, gtfs_dir, coverage_m)
-    return table.with_columns((pl.col("population") >= pop_min).alias("in_model"))
+    table = table.with_columns((pl.col("population") >= pop_min).alias("in_model"))
+    table = add_municipality(table, queries_clean)
+    table, _ = add_distance_rings(table)
+    return table.sort("h3_cell")

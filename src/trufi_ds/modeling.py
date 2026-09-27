@@ -5,7 +5,8 @@ counts`, where `train`/`frame` are pandas DataFrames with the mining-table
 columns (D-019). All fitting (rates, coefficients, alpha, hyperparameters)
 happens inside `fit`, so a technique never sees validation rows (rule R3).
 
-Catalog (D-201), in order of complexity: B0 < B1 < M1 < M2 < M3.
+Catalog (D-201, iteration 2), in order of complexity:
+baselines B0 < B0.5 < B0.7 < B1, statistical models M1 < M2, machine learning M3.
 """
 
 from __future__ import annotations
@@ -30,8 +31,9 @@ from sklearn.model_selection import GroupKFold, KFold
 
 SEED = 42
 EPS = 1e-6
-FEATURES = ["dist_plaza_km", "log1p_pop_ring1", "log1p_pop_ring2"]
-COMPLEXITY = ["B0", "B1", "M1", "M2", "M3"]
+FEATURES = ["dist_centro_km", "log1p_pop_ring1", "log1p_pop_ring2"]
+COMPLEXITY = ["B0", "B0.5", "B0.7", "B1", "M1", "M2", "M3"]
+BASELINES = ["B0", "B0.5", "B0.7", "B1"]
 M3_GRID = {"max_depth": [3, None], "min_samples_leaf": [20, 50], "learning_rate": [0.05, 0.1]}
 
 
@@ -39,7 +41,7 @@ def design(frame: pd.DataFrame) -> pd.DataFrame:
     """Predictor matrix (D-202). log1p is row-wise, so it has no fitted state."""
     return pd.DataFrame(
         {
-            "dist_plaza_km": frame["dist_plaza_km"].to_numpy(float),
+            "dist_centro_km": frame["dist_centro_km"].to_numpy(float),
             "log1p_pop_ring1": np.log1p(frame["pop_ring1"].to_numpy(float)),
             "log1p_pop_ring2": np.log1p(frame["pop_ring2"].to_numpy(float)),
         },
@@ -69,6 +71,40 @@ class B0:
 
     def predict(self, frame: pd.DataFrame) -> np.ndarray:
         return self.rate_ * frame["population"].to_numpy(float)
+
+
+@dataclass
+class GroupRate:
+    """Rate of the cell's group (estimated on training rows) × population; unseen group → B0."""
+
+    target: str = "query_count"
+    group_col: str = ""
+    rates_: dict = field(default_factory=dict, init=False)
+    _fallback: B0 | None = field(default=None, init=False)
+
+    def fit(self, train: pd.DataFrame) -> GroupRate:
+        g = train.groupby(self.group_col)[[self.target, "population"]].sum()
+        self.rates_ = (g[self.target] / g["population"]).to_dict()
+        self._fallback = B0(self.target).fit(train)
+        return self
+
+    def predict(self, frame: pd.DataFrame) -> np.ndarray:
+        rate = frame[self.group_col].map(self.rates_).fillna(self._fallback.rate_).to_numpy(float)
+        return rate * frame["population"].to_numpy(float)
+
+
+@dataclass
+class B05(GroupRate):
+    """Municipality rate × population."""
+
+    group_col: str = "municipality"
+
+
+@dataclass
+class B07(GroupRate):
+    """Distance-ring rate (A1–A4, distance to the area centroid) × population."""
+
+    group_col: str = "distance_ring"
 
 
 @dataclass
@@ -234,9 +270,9 @@ class M3:
         return self.model_.predict(design(frame)) * frame["population"].to_numpy(float)
 
 
-def make(name: str, target: str = "query_count", **kw) -> B0 | B1 | M1 | M2 | M3:
+def make(name: str, target: str = "query_count", **kw) -> B0 | GroupRate | B1 | M1 | M2 | M3:
     """Factory for the catalog."""
-    return {"B0": B0, "B1": B1, "M1": M1, "M2": M2, "M3": M3}[name](target=target, **kw)
+    return {"B0": B0, "B0.5": B05, "B0.7": B07, "B1": B1, "M1": M1, "M2": M2, "M3": M3}[name](target=target, **kw)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -114,7 +114,7 @@ operativo de cada una vive en `reports/02_preparacion/DECISIONES_02_preparacion.
 - **Por qué**: 500 m ≈ 6 min de caminata, umbral estándar de accesibilidad; la parada es el punto donde el usuario accede al servicio. Sensibilidad 400/500/750 m solo en el contraste (Fase 5, E9).
 - **Uso**: solo contraste (D-017).
 
-### D-015 · 2026-09-27 — Filtro `distancia ≤ 30 km`
+### D-015 · 2026-09-27 — Filtro `distancia ≤ 30 km` `[SUPERADA POR D-020 — iteración 2]`
 
 - **Decisión**: se excluyen las consultas con `distancia` origen–destino > 30 km (viajes interurbanos que no describen demanda intraurbana).
 - **Por qué**: el P99 de `distancia` es 19,6 km y el P99,9 es 41,0 km (`reports/01_data_understanding/distancia_percentiles.csv`); 30 km deja fuera la cola interurbana sin tocar el eje metropolitano (~30 km de extremo a extremo). Revisa la recomendación anterior de "conservar viajes largos > Q3+3·IQR", que usaba un umbral mucho menor (~17 km).
@@ -131,14 +131,47 @@ operativo de cada una vive en `reports/02_preparacion/DECISIONES_02_preparacion.
 - **Por qué**: si la cobertura entra como predictor, el modelo aprende que las celdas sin rutas consultan poco y **espera** poco en ellas; su residuo queda cerca de cero y el mapa de brecha deja de señalar lo que se busca.
 - **Predictores vigentes**: `dist_plaza_km`, `log1p(pop_ring1)`, `log1p(pop_ring2)`; exposición `log(population)`.
 
-### D-018 · 2026-09-27 — Área = envolvente de orígenes válidos + 1 km
+### D-018 · 2026-09-27 — Área = envolvente de orígenes válidos + 1 km `[MODIFICADA POR D-021 — iteración 2]`
 
 - **Decisión**: el área de estudio es la envolvente convexa de los orígenes de consultas válidas (coordenadas OK, `distancia ≤ 30 km`, usuario no anómalo) de la **componente espacial principal**, más un buffer de 1 km. Supersede D-009.
 - **Por qué**: el objetivo es predictivo y el área debe corresponder al soporte espacial de los datos, no a un polígono operativo externo (GTFS). La componente principal (celdas H3 r8 ocupadas y contiguas, `grid_disk(c, 1)`) evita que 11 orígenes aislados en La Paz, Oruro y Santa Cruz estiren la envolvente a ~41.000 km². Se define por ubicaciones, no por conteos.
 - **Evidencia**: `reports/02_preparacion/area_estudio.geojson`, `reports/02_preparacion/area_estudio_variantes.csv`; D-101.
 
-### D-019 · 2026-09-27 — Nomenclatura en inglés, nombres completos, sufijo de unidad
+### D-019 · 2026-09-27 — Nomenclatura en inglés, nombres completos, sufijo de unidad `[AJUSTADA POR D-022: dist_plaza_km → dist_centro_km]`
 
 - **Decisión**: desde la Etapa 2 las columnas usan nombres en inglés completos, sin abreviaturas ambiguas y con sufijo de unidad: `h3_cell`, `query_count`, `user_count`, `population`, `pop_ring1`, `pop_ring2`, `dist_plaza_km`, `dist_stop_m`, `gtfs_covered`, `block_id`, `x_utm`, `y_utm`, `h3_origin`/`h3_destination`, `lat_origin`/`lon_origin`, `lat_destination`/`lon_destination`.
 - **Por qué**: una sola convención entre notebooks, reportes y monografía; la unidad en el nombre evita confundir km con m.
 - **Alcance**: la Etapa 1 conserva sus nombres originales (`lat_orig`, `n_consultas`, …); el renombrado ocurre al leer `queries.parquet` en la Etapa 2.
+
+
+## Iteración 2 · Área sin acople de distancia y centro del área (2026-09-27)
+
+La iteración 1 (etiqueta Git `iteracion-1`, resultados en `reports/_iteracion1/`)
+se cerró con la prueba ya evaluada. Al revisarla, el autor observó que el filtro
+de 30 km, además de descartar consultas, **achicaba el área de estudio**. La
+razón es que el área se construía solo con orígenes de viajes ≤ 30 km. El 89 %
+de las consultas de Punata y el 66–74 % de las de Cliza y Quintín Mendoza son
+viajes de más de 30 km hacia la ciudad. Sin ellas se cortaba la cadena de
+celdas contiguas y el valle alto quedaba fuera. Área según el umbral: 20 km →
+1.076 km²; 30 km → 1.181; 40 km, 50 km o sin filtro → 1.506. Se decide una
+nueva iteración CRISP-DM, declarada **antes** de volver a ejecutar las Fases 2–6,
+con una nueva reserva de prueba.
+
+### D-020 · 2026-09-27 — Filtro de consultas `distancia ≤ 50 km`
+
+- **Decisión**: una consulta es válida si su distancia origen–destino es ≤ 50 km (`config.DIST_MAX_M`). Supersede D-015.
+- **Por qué**: en el gráfico de distribución de distancias, más allá de ~40 km ya no se trata de movilidad dentro del eje metropolitano, sino de puntos muy periféricos con pocas opciones de transporte. El P99,9 es 41 km. Con 50 km se conservan los viajes legítimos dentro del departamento (valle alto ↔ ciudad), que el umbral de 30 km cortaba. Lo interdepartamental ya queda fuera por el BBOX de Bolivia y la regla de componente espacial.
+- **Sensibilidad**: 20, 30 y 40 km (reportada en la Etapa 2 y en E9).
+
+### D-021 · 2026-09-27 — El área no depende del filtro de distancia
+
+- **Decisión**: el área de estudio es la envolvente convexa de los orígenes con coordenadas correctas de usuarios no anómalos, **sin condición de distancia**, tomando la componente espacial principal (celdas H3 r8 contiguas, k = 1), más 1 km. Modifica D-018; se mantiene la regla de componente.
+- **Por qué**: el filtro de distancia decide **qué consultas cuentan**; el área decide **dónde se mide la demanda**. Mezclar ambas cosas hacía que un umbral pensado para descartar viajes largos borrara zonas enteras con demanda local real.
+- **Límite conocido**: Villa Tunari, Capinota y otros núcleos no contiguos siguen fuera. Incluirlos exigiría abandonar la regla de componente, y la envolvente llegaría a ~41.000 km² (D-101).
+
+### D-022 · 2026-09-27 — Centro de referencia = centroide del área; `dist_centro_km`
+
+- **Decisión**: el predictor de ubicación pasa a ser `dist_centro_km`, la distancia haversine al centroide del área de estudio (calculado en UTM 19S), en lugar de la distancia a la Plaza 14 de Septiembre. Ajusta D-019.
+- **Por qué (autor)**: el punto de referencia queda ligado a la geometría del área y es reproducible con el mismo código si el área cambia.
+- **Advertencia registrada**: la Plaza era un punto exógeno. **No** generaba *leakage*: no se calcula con conteos, y la técnica adoptada en la iteración 1 (B1) ni siquiera usa esa variable. El centroide sí depende de los datos, porque sale de la envolvente de los orígenes, incluidos los de bloques que luego son de prueba. La dependencia es leve: solo de los puntos extremos de la envolvente, no de cuántas consultas hay. Además, el centroide ya no coincide con el centro comercial.
+- **Mitigación**: la distancia a la Plaza se evalúa como variación de sensibilidad declarada (E9, D-311).

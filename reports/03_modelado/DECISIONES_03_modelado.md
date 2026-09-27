@@ -1,93 +1,66 @@
-# Decisiones — Fase 4 · Modelado
-Última actualización: 2026-09-27 · Versión: 1 (protocolo M0)
+# Decisiones — Fase 4 · Modelado (iteración 2)
+Última actualización: 2026-09-27 · Versión: 2 (protocolo M0 de la iteración 2)
 
-Protocolo declarado **antes** de ejecutar cualquier validación cruzada. Este
-archivo se versiona en un commit anterior a `cv_espacial.csv`. Toda desviación
-posterior entra como decisión nueva (D-2XX) con fecha y motivo; nada de lo
-declarado aquí se edita después de ver resultados.
+Protocolo declarado y versionado **antes** de ejecutar la validación cruzada de
+la iteración 2. La iteración 1 (catálogo B0–M3, adoptó B1) está en
+`reports/_iteracion1/03_modelado/`. Cambios respecto de ella: el predictor de
+ubicación es `dist_centro_km` (D-022), el área y el filtro de distancia cambian
+(D-020, D-021) y el catálogo suma dos líneas base.
 
 **Pregunta:** ¿Cómo estimar el número esperado de consultas de ruta de Trufi
 App por celda H3 a partir de la población, la ubicación y el contexto
 territorial de cada celda, mediante técnicas geoespaciales de ciencia de datos?
 
 **Entradas:** `data/processed/tabla_minable.parquet` (celdas con
-`in_model = True`) menos los bloques de `test_blocks.csv`. Regla R1: en
-`03_modelado.ipynb` se lee **solo la lista de `block_id`** de prueba (tarea M1)
-para descartar esas filas de inmediato y verificar que no haya solapamiento;
-ninguna métrica, figura ni ajuste usa filas de prueba. Las filas de prueba se
-evalúan una sola vez, en la Fase 5 (E2).
-
-Código: `src/trufi_ds/modeling.py` (una interfaz `fit(train) → predict(frame)`
-por técnica; todo ajuste ocurre dentro del pliegue de entrenamiento, regla R3).
+`in_model = True`) menos los bloques de `test_blocks.csv` de la iteración 2.
+Regla R1: el notebook lee solo la lista de `block_id` de prueba para descartar
+esas filas; ninguna métrica, figura ni ajuste usa filas de prueba.
 
 ## D-201 · Catálogo de técnicas
-- **Estado**: vigente
-- **Decisión**: se evalúan, en orden de complejidad, **B0 < B1 < M1 < M2 < M3**.
-  - **B0** — tasa global de entrenamiento × `population`.
-  - **B1** — tasa de las celdas de entrenamiento más cercanas × `population`: `grid_disk(c, k)` con k = 1, 2, … hasta hallar ≥ 3 celdas de entrenamiento (k ≤ 10); tasa = Σ `query_count` / Σ `population`; sin vecinos → B0.
-  - **M1** — GLM Poisson con offset `log(population)` (`statsmodels`, `maxiter=200`).
-  - **M2** — Binomial Negativa NB2 con offset `log(population)`; `alpha` por máxima verosimilitud dentro del pliegue.
-  - **M3** — `HistGradientBoostingRegressor(loss="poisson")` sobre la tasa `query_count / population` con `sample_weight = population`; predicción × `population`.
-- **Fuera de alcance**: CAR/BYM, GWR, kriging, series de tiempo, selección de variables por p-valor. No se registra técnica adicional (M*).
+**Líneas base.** Reglas simples sin variables explicativas; sirven de punto de comparación.
+
+| Técnica | Nombre | Qué hace | Complejidad |
+|---|---|---|---|
+| **B0** | Tasa global | ŷ = población × (Σ consultas / Σ población) del entrenamiento. Una sola tasa para todas las celdas. | Mínima |
+| **B0.5** | Tasa por municipio | ŷ = población × tasa del municipio de la celda. El municipio es el `origin_municipio` modal de la celda; las celdas sin consultas toman el de la celda etiquetada más cercana. Es un atributo de ubicación, no un conteo. Si el municipio no aparece en el entrenamiento, se usa B0. | Baja |
+| **B0.7** | Tasa por anillo | ŷ = población × tasa del anillo A1–A4 de distancia al centro del área (cuartiles de la distancia media de los bloques). | Baja |
+| **B1** | Tasa de vecindad H3 | ŷ = población × tasa de las celdas de entrenamiento más cercanas: `grid_disk(c, k)` con k = 1, 2, … hasta hallar ≥ 3 (k ≤ 10). Sin vecinos → B0. | Baja-media |
+
+**Modelos estadísticos.**
+
+| Técnica | Nombre | Qué hace | Complejidad |
+|---|---|---|---|
+| **M1** | GLM Poisson con offset `log(population)` | log(ŷ / población) = β₀ + β₁·`dist_centro_km` + β₂·log1p(`pop_ring1`) + β₃·log1p(`pop_ring2`). | Media |
+| **M2** | Binomial Negativa (NB2) con offset | Como M1, más un parámetro α que absorbe la sobredispersión. Arranca desde M1 y prueba newton → bfgs → nm (D-208 de la iteración 1). | Media-alta |
+
+**Machine learning.**
+
+| Técnica | Nombre | Qué hace | Complejidad |
+|---|---|---|---|
+| **M3** | HistGradientBoosting, pérdida Poisson | Árboles potenciados sobre la tasa, ponderados por población; hiperparámetros por validación anidada. | Alta |
+
+- **Orden de complejidad**: B0 < B0.5 < B0.7 < B1 < M1 < M2 < M3. Todas las tasas y coeficientes se estiman dentro del pliegue de entrenamiento.
+- **Fuera de alcance**: CAR/BYM, GWR, kriging, series de tiempo, selección de variables por p-valor.
 
 ## D-202 · Variables fijas
-- **Estado**: vigente
-- **Objetivo**: `query_count`. **Exposición**: `population` (offset en M1/M2; peso en M3; factor en B0/B1).
-- **Predictores**: `dist_plaza_km`, `log1p(pop_ring1)`, `log1p(pop_ring2)`. Sin escalado (las transformaciones son fila a fila y no tienen parámetros).
-- **Prohibidos**: `dist_stop_m`, `gtfs_covered`, `route_count_500m` (D-017). `user_count` solo como objetivo alternativo en M7.
-- No se agregan ni se quitan variables según resultados.
+- Objetivo `query_count`; exposición `population`; predictores `dist_centro_km`, `log1p(pop_ring1)`, `log1p(pop_ring2)`.
+- `municipality` y `distance_ring` solo agrupan en B0.5/B0.7; no son predictores de M1–M3.
+- Prohibidos: `dist_stop_m`, `gtfs_covered`, `route_count_500m` (D-017).
 
 ## D-203 · Grilla de M3 y validación anidada
-- **Estado**: vigente
-- **Grilla** (8 combinaciones): `max_depth ∈ {3, None}`, `min_samples_leaf ∈ {20, 50}`, `learning_rate ∈ {0.05, 0.1}`; `max_iter=300`, `early_stopping=True`, `random_state=42`.
-- **Selección interna**: `GroupKFold(3)` por `block_id` dentro de cada pliegue de entrenamiento externo; se elige la combinación con menor devianza Poisson media interna. En la validación aleatoria (M6) la búsqueda interna usa `KFold(3, shuffle=True, random_state=42)`.
-- **Configuración final para E1**: la combinación elegida con más frecuencia en los 5 pliegues externos espaciales; empate → menor devianza interna media.
+Igual que en la iteración 1: `max_depth ∈ {3, None}`, `min_samples_leaf ∈ {20, 50}`, `learning_rate ∈ {0.05, 0.1}`; `max_iter=300`, `early_stopping`, semilla 42. Búsqueda interna `GroupKFold(3)`. Configuración final: la más elegida en los 5 pliegues externos.
 
 ## D-204 · Umbral de sobredispersión
-- **Estado**: vigente
-- **Medida**: χ² de Pearson / grados de libertad residuales de M1, ajustado en cada pliegue de entrenamiento.
-- **Regla**: si la media entre pliegues es **> 1,5**, M2 pasa a ser la referencia interpretable: se usa para describir el modelo (IRR, E8) y su `alpha` justifica el umbral de brecha NB (D-303). La regla de adopción (D-205) se aplica igual a todo el catálogo; M1 no se excluye, porque sus predicciones siguen siendo válidas aunque sus errores estándar no lo sean.
+χ² de Pearson / gl de M1 por pliegue. Si la media es > 1,5, M2 es la referencia interpretable para describir el modelo (E8) y justificar la brecha NB.
 
 ## D-205 · Regla de adopción
-- **Estado**: vigente
-- **Orden de complejidad**: B0 < B1 < M1 < M2 < M3.
-- **Regla**: se adopta la técnica más simple, salvo que una más compleja cumpla **a la vez**:
-  1. reduce la devianza Poisson media de validación en **más de 5 %** respecto de la mejor técnica más simple (la de menor devianza media entre las anteriores en el orden), y
-  2. gana a esa misma técnica en **al menos 4 de los 5** pliegues.
-- Se recorre el orden de izquierda a derecha; cada candidata que cumple pasa a ser la adoptada. Se implementa en código (`modeling.adoption_rule`) y su salida genera `decision_adopcion.md`.
-- **Por qué**: el 5 % exige una mejora sustantiva que compense la pérdida de interpretabilidad; el 4/5 evita adoptar una técnica que gana por uno o dos pliegues favorables. Si nada supera a B1, la conclusión es que la información territorial disponible no mejora a la vecindad.
+Se adopta la técnica más simple del orden de D-201, salvo que una más compleja reduzca la devianza Poisson media de validación espacial en **más de 5 %** respecto de la mejor técnica más simple **y** le gane en **al menos 4 de 5** pliegues. Se aplica en código (`modeling.adoption_rule`).
 
 ## D-206 · Protocolo de validación y métricas
-- **Estado**: vigente
-- **Pliegues**: `GroupKFold(5)` con `groups = block_id` sobre el 80 % de entrenamiento (sin barajar: asignación determinista y balanceada). Asignación guardada en `folds.csv`.
-- **Validación aleatoria (M6)**: `KFold(5, shuffle=True, random_state=42)` sobre las mismas celdas; optimismo = D² aleatorio − D² espacial.
-- **Métricas** (predicciones recortadas a `max(ŷ, 1e-6)`): devianza Poisson media (**principal**), D² (`d2_tweedie_score`, power=1), MAE, RMSE, calibración Σŷ/Σy, Spearman ρ; también por anillo `distance_ring`.
-- **Reporte**: media ± desviación estándar entre pliegues; nunca el mejor pliegue.
-- **Semilla**: 42 en todo. Versiones en `reports/03_modelado/entorno.txt`.
+`GroupKFold(5)` por `block_id`; validación aleatoria `KFold(5, shuffle, 42)` para medir el optimismo. Métricas: devianza Poisson media (principal), D², MAE, RMSE, calibración, Spearman, y las mismas por anillo. Se reporta media ± DE.
 
 ## D-207 · Especificaciones alternativas (M7)
-- **Estado**: vigente
-- (a) `log(population)` como covariable libre en lugar de offset, para M1 y M2; (b) objetivo `user_count` con todo el catálogo. Solo en validación espacial.
-- Si la especificación libre de la GLM de referencia cumple la regla D-205 frente a su versión con offset (> 5 % y 4/5 pliegues), se registra como hallazgo (riesgo 8) y se usa en la descripción del modelo (E8); **no** cambia la técnica adoptada.
+`log(population)` libre en M1/M2 y objetivo `user_count`. Solo en validación; no cambian la adopción.
 
----
-
-## Decisiones posteriores a M0 (con fecha y motivo)
-
-## D-208 · 2026-09-27 — Arranque de M2 desde la Poisson y método de respaldo
-- **Estado**: vigente. Corrección técnica, no cambia el protocolo.
-- **Motivo**: con el arranque por defecto de `statsmodels`, la NB2 no podía invertir la Hessiana ("Inverting hessian failed"). Arrancando desde los coeficientes de M1 con `alpha = 1`, Newton diverge en 1 de 5 pliegues (parámetros NaN).
-- **Decisión**: M2 arranca desde M1 y prueba `newton` → `bfgs` → `nm`, y conserva el primer ajuste que converge con parámetros finitos. El método usado queda en la columna `warnings` de `cv_espacial.csv` (pliegue 3: `bfgs`). Con `bfgs` y `newton` se obtienen los mismos coeficientes donde ambos convergen. Es la solución prevista para el riesgo 6 (`maxiter` / registrar).
-
-## D-209 · 2026-09-27 — Resultado de la regla de adopción: **B1**
-- **Estado**: vigente
-- **Evidencia**: `decision_adopcion.md`, `resumen_cv.csv`, `regla_adopcion_pasos.csv`, `cv_por_anillo.csv`
-- **Resultado**: B1 reduce la devianza de B0 en 75,9 % y le gana en 5/5 pliegues → adoptada. M1, M2 y M3 no mejoran a B1 (devianza media 85–143 % mayor; ganan 1, 1 y 3 pliegues). Técnica adoptada: **B1 (tasa de vecinos H3)**.
-- **Lectura**: con la información territorial disponible (población de la celda y de sus coronas, distancia a la Plaza), ninguna técnica supera a copiar la tasa de la vecindad. Es un resultado válido del protocolo, no un fracaso (§3.5).
-- **Matices que se reportan, sin cambiar la decisión**:
-  - La varianza entre pliegues es muy alta (devianza de B1: 1.586 ± 1.590). Un pliegue contiene el núcleo central (1,14 M de las 1,84 M consultas de entrenamiento) y domina la media.
-  - Por anillo, M2 tiene menor devianza que B1 en A3 y A4 (periferia) y mejor Spearman global (0,899 frente a 0,870). B1 gana en A1–A2, donde están casi todas las consultas.
-  - Sobredispersión extrema (φ medio ≈ 10.419) → M2 es la referencia interpretable (D-204) para E8 y para el `alpha` de la brecha.
-  - Especificación libre (M7): el coeficiente libre de `log(population)` es 1,16 (M1) y 1,17 (M2), cercano a 1; no mejora al offset (−0,01 % y −0,40 %). Se mantiene el offset.
-  - Con `user_count` como objetivo, la regla también adopta B1.
-  - Optimismo de la validación aleatoria: ΔD² = +0,26 para B1 y +0,24 para M3, hasta +0,82 para B0.
+## D-210 · Sensibilidad de B1 al tamaño de vecindad (M9)
+Solo descriptiva: `min_neighbors ∈ {1, 3, 5}` × `k_max ∈ {3, 10}` en la validación espacial (`b1_sensibilidad_k.csv`). **No** se usa para reelegir; B1 queda fijo en 3/10, como en la iteración 1.
