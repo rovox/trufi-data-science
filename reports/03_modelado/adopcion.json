@@ -1,0 +1,16 @@
+{
+  "adopted": "B1",
+  "reference_glm": "M2",
+  "overdispersion_phi_mean": 45748347.92778319,
+  "m3_final_params": {
+    "max_depth": null,
+    "min_samples_leaf": 20,
+    "learning_rate": 0.1
+  },
+  "free_offset_coefficients": {
+    "M1": 1.5000094617485191,
+    "M2": 1.0725051970683865
+  },
+  "spatial_folds": "GroupKFold(5) por block_id",
+  "seed": 42
+}

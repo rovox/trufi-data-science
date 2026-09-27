@@ -64,3 +64,25 @@ Se adopta la técnica más simple del orden de D-201, salvo que una más complej
 
 ## D-210 · Sensibilidad de B1 al tamaño de vecindad (M9)
 Solo descriptiva: `min_neighbors ∈ {1, 3, 5}` × `k_max ∈ {3, 10}` en la validación espacial (`b1_sensibilidad_k.csv`). **No** se usa para reelegir; B1 queda fijo en 3/10, como en la iteración 1.
+
+---
+
+## Resultados y decisiones posteriores (iteración 2)
+
+## D-211 · 2026-09-27 — La sobredispersión φ ≈ 4,6 × 10⁷ viene de una celda
+- **Estado**: hallazgo registrado; no cambia el protocolo.
+- **Evidencia**: `sobredispersion.csv`.
+- **Qué pasó**: el χ² de Pearson divide por la predicción μ. En el pliegue 1, una celda periférica con 9 consultas y μ ≈ 4,5 × 10⁻¹⁰ aporta el 98 % del estadístico. No es un error de cálculo: M1 extrapola muy mal en la periferia, y el coeficiente de `dist_centro_km` sale **positivo** (+0,063 por km), porque el centroide del área queda 7,8 km al sureste del centro real de actividad (D-022). La conclusión de D-204 no cambia: hay sobredispersión muy fuerte y M2 es la referencia interpretable.
+
+## D-212 · 2026-09-27 — Resultado de la regla de adopción: **B1** (de nuevo)
+- **Estado**: aplicada — Fase 4 cerrada.
+- **Evidencia**: `decision_adopcion.md` (incluye "Por qué ganó B1"), `resumen_cv.csv`, `b1_sensibilidad_k.csv`.
+- **Resultado**:
+  - Las líneas base B0.5 (municipio) y B0.7 (anillo) no superan a B0 según la regla. B0.5 mejora 12,9 %, pero gana solo 3 de 5 pliegues. B0.7 empeora, porque el centroide no coincide con el centro de actividad.
+  - B1 mejora 62,7 % frente a la mejor línea base más simple y gana 5 de 5 pliegues → adoptada.
+  - M1, M2 y M3 tienen una devianza media entre 80 % y 178 % mayor que B1.
+- **Matices**:
+  - M3 gana en el anillo A2 y B0.7 en el A4.
+  - La sensibilidad de B1 al tamaño de vecindad (M9) es moderada: devianza entre 1.572 y 1.803 en todas las configuraciones, salvo `min_neighbors = 5` con `k_max = 3` (2.898). La configuración declarada (3/10) está en el rango central.
+  - Con `user_count` como objetivo, B1 también es la mejor.
+  - El optimismo de la validación aleatoria para B1 es ΔD² = +0,26.
