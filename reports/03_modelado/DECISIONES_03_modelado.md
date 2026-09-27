@@ -69,3 +69,25 @@ por técnica; todo ajuste ocurre dentro del pliegue de entrenamiento, regla R3).
 - **Estado**: vigente
 - (a) `log(population)` como covariable libre en lugar de offset, para M1 y M2; (b) objetivo `user_count` con todo el catálogo. Solo en validación espacial.
 - Si la especificación libre de la GLM de referencia cumple la regla D-205 frente a su versión con offset (> 5 % y 4/5 pliegues), se registra como hallazgo (riesgo 8) y se usa en la descripción del modelo (E8); **no** cambia la técnica adoptada.
+
+---
+
+## Decisiones posteriores a M0 (con fecha y motivo)
+
+## D-208 · 2026-09-27 — Arranque de M2 desde la Poisson y método de respaldo
+- **Estado**: vigente. Corrección técnica, no cambia el protocolo.
+- **Motivo**: con el arranque por defecto de `statsmodels`, la NB2 no podía invertir la Hessiana ("Inverting hessian failed"). Arrancando desde los coeficientes de M1 con `alpha = 1`, Newton diverge en 1 de 5 pliegues (parámetros NaN).
+- **Decisión**: M2 arranca desde M1 y prueba `newton` → `bfgs` → `nm`, y conserva el primer ajuste que converge con parámetros finitos. El método usado queda en la columna `warnings` de `cv_espacial.csv` (pliegue 3: `bfgs`). Con `bfgs` y `newton` se obtienen los mismos coeficientes donde ambos convergen. Es la solución prevista para el riesgo 6 (`maxiter` / registrar).
+
+## D-209 · 2026-09-27 — Resultado de la regla de adopción: **B1**
+- **Estado**: vigente
+- **Evidencia**: `decision_adopcion.md`, `resumen_cv.csv`, `regla_adopcion_pasos.csv`, `cv_por_anillo.csv`
+- **Resultado**: B1 reduce la devianza de B0 en 75,9 % y le gana en 5/5 pliegues → adoptada. M1, M2 y M3 no mejoran a B1 (devianza media 85–143 % mayor; ganan 1, 1 y 3 pliegues). Técnica adoptada: **B1 (tasa de vecinos H3)**.
+- **Lectura**: con la información territorial disponible (población de la celda y de sus coronas, distancia a la Plaza), ninguna técnica supera a copiar la tasa de la vecindad. Es un resultado válido del protocolo, no un fracaso (§3.5).
+- **Matices que se reportan, sin cambiar la decisión**:
+  - La varianza entre pliegues es muy alta (devianza de B1: 1.586 ± 1.590). Un pliegue contiene el núcleo central (1,14 M de las 1,84 M consultas de entrenamiento) y domina la media.
+  - Por anillo, M2 tiene menor devianza que B1 en A3 y A4 (periferia) y mejor Spearman global (0,899 frente a 0,870). B1 gana en A1–A2, donde están casi todas las consultas.
+  - Sobredispersión extrema (φ medio ≈ 10.419) → M2 es la referencia interpretable (D-204) para E8 y para el `alpha` de la brecha.
+  - Especificación libre (M7): el coeficiente libre de `log(population)` es 1,16 (M1) y 1,17 (M2), cercano a 1; no mejora al offset (−0,01 % y −0,40 %). Se mantiene el offset.
+  - Con `user_count` como objetivo, la regla también adopta B1.
+  - Optimismo de la validación aleatoria: ΔD² = +0,26 para B1 y +0,24 para M3, hasta +0,82 para B0.

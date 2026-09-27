@@ -153,9 +153,18 @@ class M2(M1):
                 loglike_method="nb2",
                 offset=None if self.free_offset else _offset(train),
             )
-            self.result_ = model.fit(method="bfgs", maxiter=500, disp=0)
+            # Start from the Poisson fit (alpha = 1): the default start leaves the
+            # Hessian non-invertible on this data (risk 6, D-208).
+            start = np.r_[M1(self.target, self.free_offset).fit(train).result_.params.to_numpy(), 1.0]
+            for method in ("newton", "bfgs", "nm"):
+                self.result_ = model.fit(method=method, maxiter=2000, disp=0, start_params=start)
+                self.method_ = method
+                if self.result_.mle_retvals.get("converged", False) and np.isfinite(self.result_.params).all():
+                    break
         self.warnings_ = [str(w.message) for w in caught]
-        if not self.result_.mle_retvals.get("converged", True):
+        if self.method_ != "newton":
+            self.warnings_.append(f"NB ajustada con {self.method_} (newton no convergió)")
+        if not self.result_.mle_retvals.get("converged", False):
             self.warnings_.append("NB no convergió")
         return self
 
