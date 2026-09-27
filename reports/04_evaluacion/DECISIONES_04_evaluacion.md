@@ -1,6 +1,23 @@
 # Decisiones — Fase 5 · Evaluación (iteración 2)
 Última actualización: 2026-09-27 · Versión: 2
 
+**Fase cerrada.**
+
+| ID | Decisión | Estado |
+|---|---|---|
+| D-301 | Criterio de éxito | Aplicada — cumplido |
+| D-302 | Prueba única | Aplicada — evaluada el 2026-09-27 13:39 (commit `ac9ecc7`) |
+| D-303 | Definición de brecha (NB) | Aplicada — fase cerrada |
+| D-304 | Contraste con GTFS | Aplicada — fase cerrada |
+| D-305 | Diagnóstico espacial | Aplicada — fase cerrada |
+| D-306 | Sensibilidad | Aplicada — fase cerrada |
+| D-307 | Descripción con M2 | Aplicada — fase cerrada |
+| D-310 | Categoría `bajo_lo_esperado` | Aplicada — fase cerrada |
+| D-311 | Sensibilidad con la Plaza | Aplicada — fase cerrada |
+| D-312 | Análisis de residuos | Aplicada — fase cerrada |
+| D-313 | Resultados | Registrados |
+
+
 Declaradas antes de abrir el conjunto de prueba de la iteración 2. La
 iteración 1 (prueba evaluada el 2026-09-27, commit `f6aef7e`) está archivada en
 `reports/_iteracion1/04_evaluacion/`, incluido su `resultados_prueba.csv`.
@@ -53,3 +70,23 @@ Spearman del residuo frente a `dist_centro_km`, `log(population)` y `pop_ring1`;
 - **Descripción** (E8, M2, asociaciones): IRR por km al centro del área = 0,89 (IC 0,87–0,90); por unidad de log1p(corona 1) = 2,84 (2,26–3,57); por unidad de log1p(corona 2) = 0,74 (0,59–0,93).
 - **Sensibilidad** (E9): Spearman del ranking de brecha ≥ 0,867 en todas las variaciones (mínimo: filtro de 20 km). Con la Plaza como centro, Spearman = 1,000, porque B1 no usa la distancia.
 - **Criterio de éxito** (E10): se cumplen ambos criterios.
+
+## Cierre de la fase (lenguaje llano)
+
+**Qué se hizo.** La técnica elegida (B1) se probó una sola vez en los bloques reservados. Después se calculó, para cada
+hexágono, la diferencia entre las consultas observadas y las esperadas (la *brecha*), usando siempre predicciones hechas
+sin ver ese hexágono. Esa brecha se comparó entre zonas con y sin parada GTFS cercana, y se comprobó cuánto cambia si se
+modifican los datos de entrada.
+
+**Problemas encontrados y cómo se resolvieron.**
+1. *Ninguna celda alcanza "déficit" al 5 %* en ninguna de las dos iteraciones: la variabilidad es tan grande que una
+   celda tendría que tener cero consultas cuando se esperan cientos (D-308, iteración 1). Se agregó, declarada antes, la
+   categoría descriptiva `bajo_lo_esperado` (23 celdas, D-310).
+2. *La prueba de la iteración 1 era casi toda periférica* (4 % de las consultas) → en la iteración 2 contiene el 11,8 %.
+3. *B1 sobrepredice el total de la prueba* (calibración 1,96) y *deja estructura en los residuos*: subpredice en celdas
+   más pobladas (ρ = +0,25) y conserva algo de autocorrelación con las vecinas inmediatas (I = 0,13).
+
+**Qué se concluyó.** B1 generaliza mejor que la tasa global en zonas nunca vistas (devianza 982 frente a 1.807) y cumple
+el criterio de éxito. El ranking de brecha es estable (Spearman ≥ 0,87 ante todos los cambios probados). Las celdas sin
+parada GTFS a menos de 500 m consultan menos de lo que predice su vecindad (Cliff δ = +0,37), pero esto es una
+asociación, no una prueba de que falten rutas.

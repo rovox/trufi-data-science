@@ -1,6 +1,23 @@
 # Decisiones — Fase 4 · Modelado (iteración 2)
 Última actualización: 2026-09-27 · Versión: 2 (protocolo M0 de la iteración 2)
 
+**Fase cerrada.**
+
+| ID | Decisión | Estado |
+|---|---|---|
+| D-201 | Catálogo: 4 líneas base, 2 modelos estadísticos, 1 de machine learning | Aplicada — fase cerrada |
+| D-202 | Variables fijas | Aplicada — fase cerrada |
+| D-203 | Grilla de M3 y validación anidada | Aplicada — fase cerrada |
+| D-204 | Umbral de sobredispersión 1,5 → M2 referencia | Aplicada — fase cerrada |
+| D-205 | Regla de adopción (> 5 % y 4/5) | Aplicada — fase cerrada |
+| D-206 | Validación espacial y métricas | Aplicada — fase cerrada |
+| D-207 | Especificaciones alternativas | Aplicada — fase cerrada |
+| D-208 | Arranque de la NB desde la Poisson (iteración 1) | Aplicada en ambas iteraciones |
+| D-210 | Sensibilidad de k en B1 | Aplicada — fase cerrada |
+| D-211 | φ extremo por una celda | Hallazgo registrado |
+| D-212 | Resultado: B1 | Aplicada — fase cerrada |
+
+
 Protocolo declarado y versionado **antes** de ejecutar la validación cruzada de
 la iteración 2. La iteración 1 (catálogo B0–M3, adoptó B1) está en
 `reports/_iteracion1/03_modelado/`. Cambios respecto de ella: el predictor de
@@ -86,3 +103,30 @@ Solo descriptiva: `min_neighbors ∈ {1, 3, 5}` × `k_max ∈ {3, 10}` en la val
   - La sensibilidad de B1 al tamaño de vecindad (M9) es moderada: devianza entre 1.572 y 1.803 en todas las configuraciones, salvo `min_neighbors = 5` con `k_max = 3` (2.898). La configuración declarada (3/10) está en el rango central.
   - Con `user_count` como objetivo, B1 también es la mejor.
   - El optimismo de la validación aleatoria para B1 es ΔD² = +0,26.
+
+## Cierre de la fase (lenguaje llano)
+
+**Qué se hizo.** Se compararon siete formas de estimar cuántas consultas debería tener cada hexágono. Todas se
+evaluaron igual: se entrena con cuatro quintos de los bloques espaciales y se mide el error en el quinto restante, cinco
+veces. La regla para elegir se fijó antes de ver los resultados.
+
+| Técnica | Tipo | En palabras |
+|---|---|---|
+| B0 | Línea base | Una sola tasa (consultas por habitante) para todo el área, multiplicada por la población de la celda |
+| B0.5 | Línea base | La tasa del municipio de la celda |
+| B0.7 | Línea base | La tasa del anillo de distancia al centro del área |
+| **B1** | Línea base | **La tasa de las celdas vecinas** (las más cercanas con datos de entrenamiento) |
+| M1 | Modelo estadístico | Regresión de Poisson: tasa según distancia al centro y población de los alrededores |
+| M2 | Modelo estadístico | Como M1, pero admite mucha más variabilidad (Binomial Negativa) |
+| M3 | Machine learning | Árboles de decisión potenciados (gradient boosting) con las mismas variables |
+
+**Problemas encontrados y cómo se resolvieron.**
+1. *La Binomial Negativa no convergía* con el arranque por defecto e incluso divergía en un pliegue → arranca desde la Poisson y prueba otros métodos de optimización (D-208).
+2. *Sobredispersión enorme* (la variabilidad real es miles de veces la que supone Poisson). En la iteración 2 el indicador llegó a 4,6 × 10⁷ por una sola celda periférica mal predicha → se registró (D-211), y M2 quedó como modelo de referencia para interpretar.
+3. *Un pliegue concentra el centro de la ciudad* y domina el error promedio → se reporta la media ± desviación y el error por anillo, no solo la media.
+4. *El centro geométrico del área no es el centro de actividad* → la línea base por anillos rinde mal y M1 da un signo de distancia contraintuitivo (D-211). No afecta a la técnica adoptada.
+
+**Qué se concluyó.** En ambas iteraciones la regla adopta **B1, la tasa de las celdas vecinas**. Mejora a la mejor
+línea base más simple en 62,7 % y gana los 5 pliegues. Los modelos con variables territoriales (M1–M3) no la superan: la
+información de población y distancia disponible no predice mejor, en zonas nuevas, que copiar la tasa del entorno. La
+validación aleatoria habría inflado la calidad (D² 0,91 frente a 0,65 espacial).

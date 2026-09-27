@@ -1,6 +1,37 @@
 # Bitácora de decisiones — trufi-data-science
 # (reiniciada en refactor/crisp-dm-restart — registro anterior en DECISIONES_ARCHIVO_2026-09.md)
 
+> **Estado del proyecto (2026-09-27): cerrado.** Todas las fases CRISP-DM se ejecutaron dos veces (iteración 1,
+> archivada en `reports/_iteracion1/`; iteración 2, vigente en `reports/`). Resumen en lenguaje llano:
+> `docs/INFORME_FINAL.md`.
+
+## Estado de las decisiones de este archivo
+
+| ID | Tema | Estado |
+|---|---|---|
+| D-001 | Un solo notebook para la Etapa 1 | Aplicada — Etapa 1 cerrada |
+| D-002 | Dos grupos de esquema, nombres canónicos | Aplicada — Etapa 1 cerrada |
+| D-003 | Codificación Latin-1 en el lote 2024 | Aplicada — Etapa 1 cerrada |
+| D-004 | Nulidad estructural (no imputar) | Aplicada — Etapa 1 cerrada |
+| D-005 | Clasificación espacial de 3 vías | Superada por D-009 y D-018/D-021 (se mantienen las reglas 1 y 2) |
+| D-006 | `distancia` = haversine en metros | Aplicada — Etapa 1 cerrada |
+| D-007 | Semanas faltantes: no imputar | Aplicada — Etapa 1 cerrada |
+| D-008 | Usuarios anómalos (≥ 2 señales) | Aplicada en la Etapa 2 (233 consultas excluidas) |
+| D-009 | Área = hull GTFS + 1 km | Superada por D-018 / D-021 |
+| D-010 | Kontur por ID H3 | Aplicada — Etapas 1 y 2 |
+| D-011 | Moran por ciudad + LISA | Aplicada — Etapa 1 cerrada |
+| D-012 | `source_batch` como linaje | Aplicada — Etapa 1 cerrada |
+| D-013 | Duplicados exactos: eliminar copias | Aplicada en la Etapa 2 (60 filas) |
+| D-014 | `gtfs_covered` ≤ 500 m | Aplicada — solo contraste |
+| D-015 | Filtro ≤ 30 km | Superada por D-020 (iteración 2) |
+| D-016 | Auditoría de leakage L1–L8 | Aplicada en ambas iteraciones |
+| D-017 | GTFS fuera del modelo | Aplicada en ambas iteraciones |
+| D-018 | Área = hull de orígenes válidos | Modificada por D-021 (iteración 2) |
+| D-019 | Nomenclatura en inglés | Aplicada; ajustada por D-022 (`dist_centro_km`) |
+| D-020 | Filtro ≤ 50 km | Aplicada — iteración 2, cerrada |
+| D-021 | Área sin acople de distancia | Aplicada — iteración 2, cerrada |
+| D-022 | Centro = centroide del área | Aplicada — iteración 2, cerrada (con advertencia) |
+
 ## Etapa 1 · Comprensión de datos (EDA completo)
 
 ### D-001 · 2026-09-26 — Un solo notebook narrado, no siete
@@ -90,6 +121,23 @@
   no es un estrato del fenómeno sino un accidente del pipeline de exportación.
 - **Evidencia**: `cobertura_columnas_por_lote.csv` (§3–4); §5.2 (por archivo),
   §9 y §11.2 reescritos sin `source_batch`.
+
+
+### Cierre de la Etapa 1 (Comprensión de datos)
+
+**Qué se hizo.** Se revisaron los 85 archivos semanales de consultas (1.927.675 filas, septiembre 2022 – junio 2024),
+el feed GTFS de Trufi y la población Kontur. Se consolidó todo en un solo archivo, se midió la calidad (nulos,
+duplicados, coordenadas imposibles, usuarios anómalos) y se describió cómo se reparte la demanda en el espacio.
+
+**Problemas que aparecieron y cómo se resolvieron.**
+- Seis archivos de 2024 venían con otra codificación (Latin-1) y columnas en inglés → lectura con respaldo y nombres unificados (D-002, D-003).
+- Al comparar con el borrador de la monografía, varias cifras no coincidían (15 frente a 9 filas fuera de Bolivia; 104 filas "duplicadas" que en realidad son 60 copias a eliminar; 130.549 frente a 130.545 usuarios; mediana de 3 frente a 5 consultas por usuario; "625 rutas" frente a 141 líneas) → se recalcularon en `notebooks/00_verificacion_cifras.ipynb` (`reports/00_verificacion_cifras.csv`).
+- Hay 7 semanas sin datos en 2024 → se documentaron y no se imputaron (D-007).
+- El notebook agregaba texto a esta bitácora cada vez que se ejecutaba (con una guarda de texto frágil) → desde la iteración 2 solo verifica, no escribe.
+
+**Qué se concluyó.** El registro es de buena calidad (menos del 0,01 % de filas con coordenadas inválidas). La
+demanda está muy concentrada (las 10 celdas con más consultas reúnen el 42 %) y las celdas vecinas se parecen entre sí
+(I de Moran ≈ 0,71). Por eso los modelos debían evaluarse con validación espacial y no aleatoria.
 
 
 ## Transición a la Etapa 2 · Encuadre predictivo (2026-09-27)

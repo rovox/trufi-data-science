@@ -30,3 +30,17 @@ No se publica: es una acción externa que decide el autor. `outputs/README.md` e
 
 ## D-406 · Mapa base OpenStreetMap
 Problema detectado en la iteración 1: los mosaicos de CartoDB ahora exigen una clave de API y el fondo del mapa podía no cargar. Se usa OpenStreetMap, que no la requiere.
+
+## Cierre de la fase (lenguaje llano)
+
+**Qué se hizo.** Se generaron los productos para Trufi: un archivo con la estimación de cada hexágono, un mapa
+interactivo, una lista de 20 celdas prioritarias con enlace a OpenStreetMap, una ficha del modelo y una guía de actualización.
+
+**Problemas encontrados y cómo se resolvieron.**
+1. *Los mosaicos de CartoDB piden clave de API* → se usa OpenStreetMap (D-406).
+2. *Sin celdas en "déficit", la lista de prioritarias quedaba vacía* → se ordena por categoría (déficit → bajo lo esperado → menor probabilidad) y cada fila lleva una nota que explica su grupo (D-402).
+3. *El mapa HTML cambia byte a byte en cada ejecución* (folium genera identificadores aleatorios), aunque su contenido es el mismo → esperable, no es un error.
+
+**Qué se concluyó.** Los productos se regeneran con un solo notebook y abren sin servidor. La ficha explica qué hace la
+técnica, sus limitaciones y cuándo no usarla.
+

@@ -1,96 +1,109 @@
 # Decisiones — Etapa 2 · Preparación de datos
-Última actualización: 2026-09-27 · Versión: 1
+Última actualización: 2026-09-27 · Versión: 2 (iteración 2) · **Fase cerrada**
 
-Complementa `DECISIONES.md` (D-001 a D-099). Todas las cifras salen de CSV de
-esta carpeta, generados por `notebooks/02_preparacion_datos.ipynb`.
+Complementa `DECISIONES.md` (D-001 a D-022). Todas las cifras salen de CSV de esta carpeta, generados por
+`notebooks/02_preparacion_datos.ipynb`. La versión 1 (iteración 1, área de 1.181 km²) está en
+`reports/_iteracion1/02_preparacion/DECISIONES_02_preparacion.md`.
 
-## Índice
-- D-101 Área de estudio
-- D-102 Filtro de distancia
-- D-103 Limpieza de consultas
-- D-104 Cobertura GTFS
-- D-105 Variables territoriales
-- D-106 Reserva de prueba
-- D-107 Auditoría de leakage
-- D-108 Umbral de población mínima
-- D-109 Nomenclatura
-- D-110 Nulos persistentes
+## Estado de las decisiones
 
-## D-101 · Área de estudio = envolvente de orígenes válidos + 1 km
-- **Estado**: vigente
-- **Supersede**: D-009 (Etapa 1). Desarrolla D-018.
-- **Evidencia**: `area_estudio.geojson`, `area_estudio_variantes.csv`, `area_comparacion_etapas.csv`, `figuras/area_estudio_y_consultas.png`
-- **Decisión**: envolvente convexa de los orígenes de consultas válidas (coordenadas correctas, `distancia ≤ 30 km`, usuario no anómalo) que pertenecen a la **componente espacial principal** de celdas H3 r8 ocupadas, conectadas por `grid_disk(c, 1)`; más buffer de 1 km en UTM 19S.
-- **Justificación**: el objetivo es predictivo y el área debe corresponder al soporte espacial de los datos, no a un polígono operativo externo. La envolvente literal de todos los orígenes válidos mide 40.967 km², porque 11 orígenes aislados en La Paz, Oruro y Santa Cruz la estiran. La componente principal usa solo ubicaciones (si una celda tiene al menos un origen), nunca conteos, y aplica la misma vecindad H3 que el resto del análisis. Con k = 1 el área mide 1.181,4 km² y conserva el 99,91 % de las consultas válidas; con k = 2 crece a 1.903 km² para ganar solo 0,07 puntos.
-- **Comparación con la Etapa 1**: 1.372,9 km² (hull GTFS) → 1.181,4 km²; se conserva el 79,8 % del área anterior. Quedan fuera los núcleos del valle alto (Punata, Cliza, Tarata), cuyos orígenes no son contiguos a la mancha principal. Dentro del área caen 1.924.094 de 1.927.663 consultas con coordenadas correctas (99,81 %).
+| ID | Decisión | Estado |
+|---|---|---|
+| D-101 | Área = envolvente de orígenes válidos (componente k = 1) + 1 km, **sin filtro de distancia**: 1.505,7 km² | Aplicada (versión 2) — fase cerrada |
+| D-102 | Filtro de consultas `distancia ≤ 50 km` | Aplicada (versión 2; la versión 1 usaba 30 km) — fase cerrada |
+| D-103 | Limpieza en 6 pasos → 1.924.578 consultas válidas | Aplicada — fase cerrada |
+| D-104 | `gtfs_covered` = parada a ≤ 500 m; solo contraste | Aplicada — fase cerrada |
+| D-105 | Predictores `dist_centro_km`, `pop_ring1`, `pop_ring2` | Aplicada (versión 2; antes `dist_plaza_km`) — fase cerrada |
+| D-106 | Prueba: 12 de 53 bloques res 6 | Aplicada (versión 2) — fase cerrada |
+| D-107 | Auditoría de leakage L1–L8: todo OK | Aplicada — fase cerrada |
+| D-108 | `population ≥ 10` → 1.381 celdas del modelo | Aplicada — fase cerrada |
+| D-109 | Nombres D-019/D-022 + `route_count_500m`, `municipality` | Aplicada — fase cerrada |
+| D-110 | 0 nulos; sin imputación | Aplicada — fase cerrada |
 
-## D-102 · Filtro `distancia ≤ 30 km`
-- **Estado**: vigente (desarrolla D-015)
-- **Evidencia**: `filtro_30km_diagnostico.csv`, `sensibilidad_umbral_km.csv`, `figuras/distancia_histograma.png`
-- **Justificación**: el filtro excluye 4.962 consultas (0,26 %) con origen en el área. El 30 km queda por encima del P99 (19,6 km) y deja fuera solo la cola interurbana.
-- **Sensibilidad**: con 20 km se excluye el 0,82 % y con 50 km el 0,01 %. El orden de las celdas casi no cambia (Spearman frente a 30 km: 0,990 con 20 km y 0,9998 con 50 km). Su efecto sobre la brecha se mide en la Fase 5 (E9).
+## D-101 · Área de estudio
+- **Evidencia**: `area_estudio.geojson`, `area_estudio_variantes.csv`, `area_comparacion_etapas.csv`, `area_municipios.csv`, `figuras/area_estudio_y_consultas.png`.
+- **Decisión**: envolvente convexa de los orígenes con coordenadas correctas de usuarios no anómalos, sin condición de distancia, que pertenecen a la **componente espacial principal** (celdas H3 r8 ocupadas y contiguas, `grid_disk(c, 1)`), más 1 km en UTM 19S. Mide **1.505,7 km²** y contiene el 99,87 % de las consultas con coordenadas correctas.
+
+### Validación de la elección del área
+
+**1. Por qué la iteración 1 era más chica.** En la iteración 1, el área se armaba solo con orígenes de viajes ≤ 30 km. El filtro de distancia cumplía dos funciones a la vez: decidir qué consultas cuentan y dibujar el área. Los núcleos del valle alto consultan sobre todo viajes largos hacia la ciudad: el 89 % de las consultas de Punata supera los 30 km, igual que el 74 % de las de Cliza y el 72 % de las de Quintín Mendoza. Al quitar esos viajes desaparecían sus orígenes, se cortaba la cadena de celdas contiguas y el valle alto quedaba fuera.
+
+**2. Área según el umbral que se hubiera usado para dibujarla** (`area_estudio_variantes.csv`, componente k = 1):
+
+| Umbral usado para dibujar el área | Área | Celdas ocupadas | Consultas dentro |
+|---|---|---|---|
+| 20 km | 1.076,1 km² | 797 | 99,81 % |
+| 30 km (iteración 1) | 1.181,4 km² | 835 | 99,82 % |
+| 40 km | 1.505,1 km² | 916 | 99,87 % |
+| 50 km | 1.505,7 km² | 919 | 99,87 % |
+| **Sin filtro (iteración 2)** | **1.505,7 km²** | **919** | **99,87 %** |
+
+A partir de 40 km el área deja de cambiar. Separar el área del filtro (D-021) la hace estable: ya no depende de un umbral pensado para otra cosa.
+
+**3. Regla de componente.** Sin ella, la envolvente de todos los orígenes mide 485.940 km², porque la estiran orígenes sueltos en La Paz, Oruro, Santa Cruz y el Chapare. Con k = 2 mide 1.965 km², y con k = 3, 3.041 km². Ambas ganan menos de 0,1 punto de consultas a cambio de cientos de km² casi vacíos. k = 1 es la misma vecindad que se usa en todo el análisis.
+
+**4. Municipios** (`area_municipios.csv`):
+- **Entran en la iteración 2**: Villa Punata (95 % de sus consultas dentro), Villa José Quintín Mendoza (99 %), Villa Santivañez (89 %) y parte de Cliza (19 %).
+- **Siguen dentro**: Cochabamba, Sacaba, Quillacollo, Colcapirhua, Tiquipaya, Vinto, Sipe Sipe, Arbieto y Tolata.
+- **Siguen fuera**: Tarata, Capinota, Villa Tunari, Colomi y los orígenes "externo". Sus orígenes no son contiguos a la mancha principal. Incluirlos exigiría abandonar la regla de componente. Suman menos de 800 consultas.
+
+**5. Comparación con el hull GTFS** (Etapa 1, 1.372,9 km²): el área nueva conserva el 93,1 % de ese polígono y lo supera en 132,8 km².
+
+**6. Centro de referencia (D-022).** El centroide del área está en lat −17,4553, lon −66,1216, a 7,8 km al sureste de la Plaza 14 de Septiembre (`centro_area.geojson`). Depende levemente de los datos: sale de la envolvente de los orígenes, incluidos los de bloques que luego fueron de prueba, pero no de los conteos. No coincide con el centro de actividad. Consecuencias observadas: la línea base por anillos (B0.7) rindió peor que la tasa global, y en M1 el signo de la distancia salió positivo (D-211). La técnica adoptada (B1) no usa esta variable, y la sensibilidad con la Plaza dio el mismo ranking de brecha (Spearman = 1,000).
+
+## D-102 · Filtro `distancia ≤ 50 km`
+- **Evidencia**: `filtro_distancia_diagnostico.csv`, `sensibilidad_umbral_km.csv`, `figuras/distancia_histograma.png`.
+- **Justificación (autor)**: en el histograma de distancias, más allá de ~40 km ya no se trata de movilidad dentro del eje metropolitano, sino de puntos muy periféricos con pocas opciones de transporte (P99,9 ≈ 41 km). 50 km conserva los viajes del valle alto hacia la ciudad.
+- **Efecto**: se excluyen 283 consultas con origen en el área (0,015 %). Con 20, 30 y 40 km se excluirían el 0,87 %, el 0,29 % y el 0,07 %. El orden de las celdas casi no cambia (Spearman frente a 50 km ≥ 0,963).
 
 ## D-103 · Limpieza de consultas
-- **Estado**: vigente
-- **Evidencia**: `tabla_flujo_limpieza.csv`, `data/interim/queries_limpias.parquet`
-- **Orden y efecto**: (0,0) −3 → fuera de Bolivia −9 → copias de duplicados exactos −60 (D-013) → fuera del área −3.568 → `distancia > 30 km` −4.962 → usuarios anómalos −233 (D-008). Resultado: **1.918.840 consultas válidas** (99,54 % de 1.927.675).
-- **Justificación**: el orden va de los errores sin ambigüedad a las reglas de alcance, de modo que cada regla se aplica solo a registros que las anteriores dejaron como correctos.
+- **Evidencia**: `tabla_flujo_limpieza.csv`.
+- **Orden y efecto**:
+  1. Origen (0,0): −3.
+  2. Fuera de Bolivia: −9.
+  3. Copias de duplicados exactos: −60.
+  4. Origen fuera del área: −2.509.
+  5. Distancia > 50 km: −283.
+  6. Usuarios anómalos: −233.
+- **Resultado**: **1.924.578 consultas válidas** (99,84 % de las 1.927.675 crudas).
 
-## D-104 · Cobertura GTFS (`gtfs_covered`, `dist_stop_m`)
-- **Estado**: vigente (desarrolla D-014 y D-017)
-- **Evidencia**: `resumen_cobertura_gtfs.csv`, `figuras/gtfs_cobertura_mapa.png`
-- **Definición**: `dist_stop_m` = distancia en UTM 19S del centroide de la celda a la parada GTFS más cercana; `gtfs_covered = 1` si `dist_stop_m ≤ 500`; `route_count_500m` = líneas (`route_id`) distintas con parada a ≤ 500 m.
-- **Cifras**: 599 de 1.277 celdas cubiertas (46,9 %); concentran el 99,3 % de las consultas. En las celdas del modelo: 593 de 1.087 (54,6 %).
-- **Uso**: solo contraste post-hoc de la brecha (Fase 5, E5). Nunca predictor.
+## D-104 · Cobertura GTFS
+- **Evidencia**: `resumen_cobertura_gtfs.csv`, `figuras/gtfs_cobertura_mapa.png`.
+- 625 de 1.628 celdas cubiertas (38,4 %); concentran el 99,3 % de las consultas. En el modelo: 617 de 1.381 (44,7 %). Solo se usan como contraste.
 
-## D-105 · Variables territoriales
-- **Estado**: vigente
-- **Evidencia**: `diccionario_datos.csv`
-- **Predictores**: `dist_plaza_km` (haversine a la Plaza 14 de Septiembre, punto exógeno), `pop_ring1` y `pop_ring2` (población Kontur de la 1.ª y 2.ª corona, `h3.grid_ring`), transformadas con `log1p` en el modelado. Exposición: `population` (offset `log(population)`).
-- **Construcción**: las coronas suman la población de **todas** las celdas Kontur de Bolivia, no solo las del área, para no subestimar el borde.
-- **Nota sobre el invariante**: `pop_ring1 ≥ population` solo vale si la corona incluye la celda central (`grid_disk`). Con `grid_ring`, como se especifica, 14 celdas del modelo tienen `pop_ring1 < population`. Se prefiere `grid_ring` para que la variable no repita la exposición que ya entra como offset. Se registra como `INFO` en `verificaciones_modelado.csv`.
-- **Prohibido**: variables derivadas de las consultas de celdas vecinas (fuga del objetivo).
+## D-105 · Variables
+- **Evidencia**: `diccionario_datos.csv`.
+- **Predictores**: `dist_centro_km`, `log1p(pop_ring1)`, `log1p(pop_ring2)`; exposición `population`.
+- **Grupos de las líneas base**: `municipality` (B0.5) y `distance_ring` (B0.7).
+- **Nota**: el invariante `pop_ring1 ≥ population` no vale con `grid_ring`, porque la corona excluye la celda central (16 celdas).
 
-## D-106 · Reserva de prueba por bloques H3 res 6
-- **Estado**: vigente. Versionado en el commit `5ea649b`, anterior a cualquier modelo.
-- **Evidencia**: `test_blocks.csv`, `particion_resumen.csv`, `figuras/particion_bloques.png`, `moran_correlograma.csv`
-- **Procedimiento**: bloques = `h3.cell_to_parent(c, 6)` de las celdas del modelo (43 bloques). Anillos A1–A4 por cuartiles de la distancia media del bloque a la Plaza. Se sortea el 20 % de cada anillo con `numpy.random.default_rng(42)`: 8 bloques en total.
-- **Resultado**: la prueba tiene 247 celdas (22,7 %) pero solo 79.519 consultas (4,1 %), porque el bloque de la Plaza y el núcleo denso quedaron en entrenamiento. No se reubicó nada a mano. La prueba mide sobre todo la extrapolación a zonas periféricas y de densidad media, y así debe leerse.
-- **Alcance de la autocorrelación**: el I de Moran de `log1p(tasa)` baja de 0,72 (k = 1, ≈ 0,9 km) a 0,35 (k = 6, ≈ 5,5 km) y sigue siendo significativo. El bloque res 6 (≈ 6–7 km de ancho) **no** supera por completo el alcance de la autocorrelación de la tasa bruta, que en gran parte refleja el gradiente centro–periferia que modela `dist_plaza_km`. Lo que importa para la validez es la autocorrelación de los residuos, que se mide en la Fase 5 (E6). Se declara como limitación.
+## D-106 · Reserva de prueba
+- **Evidencia**: `test_blocks.csv` (commit `472a11d`, anterior a cualquier modelo de la iteración 2), `particion_resumen.csv`, `figuras/particion_bloques.png`, `moran_correlograma.csv`.
+- **Reparto**: 12 de 53 bloques; 303 celdas (21,9 %) y 228.013 consultas (11,8 %). En la iteración 1 la prueba tenía solo el 4,1 % de las consultas.
+- **Autocorrelación de la tasa**: sigue siendo alta a 5,5 km (I = 0,42). Los bloques no cubren todo su alcance; se declara como limitación.
 
 ## D-107 · Auditoría de leakage L1–L8
-- **Estado**: vigente (desarrolla D-016). Las 8 verificaciones dan OK.
-- **Evidencia**: `auditoria_leakage.csv`
-- L1 objetivo en predictores · L2 predictores derivados de consultas vecinas · L3 área definida con conteos · L4 escalado antes de partir · L5 prueba tocada antes de modelar · L6 GTFS como predictor · L7 bloques compartidos · L8 imputación con información global.
-- **Observación L7**: los bloques son disjuntos, pero algunas celdas de prueba tocan celdas de entrenamiento en el borde del bloque (detalle en el CSV). Es inherente a la partición por bloques y se acepta.
+Las 8 verificaciones dan OK (`auditoria_leakage.csv`). En L7, 106 de las 303 celdas de prueba tocan una celda de entrenamiento en el borde de su bloque; es inherente a partir por bloques.
 
-## D-108 · Umbral de población mínima: `population ≥ 10`
-- **Estado**: vigente
-- **Evidencia**: `umbral_poblacion.csv`, `polos_actividad.csv`
-- **Justificación**: con menos de 10 habitantes una sola consulta equivale a más de 0,1 consultas por habitante, lo que vuelve inestable la tasa. Quedan fuera del ajuste 153 celdas con 1–9 habitantes (121 consultas) y 37 *polos de actividad* con población 0 y consultas (91 consultas); se describen aparte. El modelo usa 1.087 celdas con 1.918.628 consultas (99,99 % de las válidas).
-- **Sensibilidad**: `≥ 50` en la Fase 5 (E9).
+## D-108 · `population ≥ 10`
+Modelo: 1.381 celdas con 1.924.336 consultas. Fuera del modelo quedan 204 celdas con 1–9 habitantes (140 consultas) y 43 polos de actividad con población 0 (102 consultas).
 
 ## D-109 · Nomenclatura
-- **Estado**: vigente (desarrolla D-019)
-- **Evidencia**: `tabla_minable_dtypes.json`, `diccionario_datos.csv`
-- **Mapa de nombres**: `h3`→`h3_cell`, `n_consultas`→`query_count`, `n_usuarios`→`user_count`, `pop`→`population`, `pop_k1/k2`→`pop_ring1/2`, `dist_centro_km`→`dist_plaza_km`, `dist_parada_m`→`dist_stop_m`, `cubierta`→`gtfs_covered`, `bloque_id`→`block_id`, `n_rutas_500m`→`route_count_500m`, `lat_orig/lon_orig`→`lat_origin/lon_origin`, `lat_dest/lon_dest`→`lat_destination/lon_destination`. Columnas nuevas: `distance_ring`, `in_model`, `edge_cell`, `lat`, `lon`, `x_utm`, `y_utm`.
+Como en la versión 1, con `dist_plaza_km` → `dist_centro_km` (D-022) y la columna nueva `municipality`.
 
-## D-110 · Nulos persistentes
-- **Estado**: vigente
-- **Evidencia**: `verificaciones_modelado.csv`, `diccionario_datos.csv`
-- **Decisión**: la tabla minable tiene 0 nulos y no se imputa nada. Los ceros son ausencias estructurales, no imputaciones: `query_count = 0` y `user_count = 0` en celdas sin consultas, y `population = 0` en celdas con consultas sin registro Kontur (quedan fuera del modelo por D-108).
+## D-110 · Nulos
+0 nulos; sin imputación.
 
-## Resumen
+## Cierre de la fase (lenguaje llano)
 
-| ID | Decisión | Estado | Evidencia principal |
-|---|---|---|---|
-| D-101 | Área = hull orígenes válidos (componente k=1) + 1 km, 1.181,4 km² | vigente | `area_estudio.geojson` |
-| D-102 | `distancia ≤ 30 km` (−0,26 %) | vigente | `filtro_30km_diagnostico.csv` |
-| D-103 | 6 reglas en orden fijo → 1.918.840 consultas | vigente | `tabla_flujo_limpieza.csv` |
-| D-104 | `gtfs_covered` = parada a ≤ 500 m; solo contraste | vigente | `resumen_cobertura_gtfs.csv` |
-| D-105 | Predictores `dist_plaza_km`, `pop_ring1`, `pop_ring2` | vigente | `diccionario_datos.csv` |
-| D-106 | 8 de 43 bloques res 6 en prueba (semilla 42) | vigente | `test_blocks.csv` |
-| D-107 | Auditoría L1–L8: todo OK | vigente | `auditoria_leakage.csv` |
-| D-108 | `population ≥ 10` → 1.087 celdas del modelo | vigente | `umbral_poblacion.csv` |
-| D-109 | Nombres D-019 + `route_count_500m` | vigente | `tabla_minable_dtypes.json` |
-| D-110 | 0 nulos; sin imputación | vigente | `verificaciones_modelado.csv` |
+**Qué se hizo.** Se limpiaron las consultas, se definió dónde se mide la demanda (el área), se armó una tabla con una fila por hexágono H3 (incluidos los hexágonos con población pero sin consultas) y se apartó, antes de modelar, un 20 % de los bloques como prueba.
+
+**Problemas encontrados y cómo se resolvieron.**
+1. *La envolvente literal de los orígenes cubría medio país* (41.000 km² en la iteración 1 y 486.000 km² sin filtro de distancia), por unos pocos orígenes en otras ciudades → se usa solo el grupo principal de celdas contiguas.
+2. *El filtro de 30 km achicaba el área y dejaba fuera el valle alto* → en la iteración 2 el área ya no depende del filtro, y el filtro sube a 50 km.
+3. *Algunos nombres de municipio venían mal codificados* (`ChimorÃ©`) → se reparan con `fix_mojibake`.
+4. *Las celdas sin consultas no tienen municipio* → toman el de la celda con consultas más cercana (para la línea base B0.5).
+5. *El invariante "corona ≥ celda" de las instrucciones no vale para una corona sin centro* → se documentó en vez de forzarlo.
+6. *Los bloques de prueba de la iteración 1 dejaban el centro en entrenamiento* (4 % de consultas en prueba) → en la iteración 2 el sorteo, con la misma regla y semilla, dio 11,8 %.
+
+**Qué se concluyó.** La tabla final tiene 1.628 celdas (1.381 en el modelo, 444 de ellas sin ninguna consulta; en total 611 celdas con población y cero consultas). La demanda está muy concentrada (Gini = 0,95; 10 celdas reúnen el 42 %) y autocorrelacionada, lo que justifica la validación por bloques espaciales.
