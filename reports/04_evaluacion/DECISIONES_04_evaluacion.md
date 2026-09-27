@@ -45,3 +45,24 @@ técnica evaluada es la adoptada en la Fase 4: **B1** (D-209). Notebook:
 ## D-307 · Descripción del modelo (E8)
 - **Estado**: vigente
 - B1 no tiene coeficientes; se describe por el tamaño de vecindad usado (k) y por su tasa. Las asociaciones con las variables territoriales se describen con la referencia interpretable M2 (D-204): IRR = `exp(β)` con IC 95 %, ajustada con todo el entrenamiento. Se redacta como "asociaciones del modelo", no como efectos causales.
+
+---
+
+## Resultados y decisiones posteriores (con fecha y motivo)
+
+## D-308 · 2026-09-27 — Hallazgo: la brecha NB no puede marcar déficit
+- **Estado**: vigente (hallazgo; la definición D-303 **no** se cambia a posteriori)
+- **Evidencia**: `reparto_brecha.csv`, `predicciones_cruzadas.parquet`, `figuras/mapa_residuos.png`
+- **Resultado**: α = 2,38 (NB con offset log ŷ sobre las predicciones fuera de pliegue de B1). Ninguna celda cae en `deficit` (mínimo `p_low` = 0,073); 76 celdas (7,0 %) en `exceso`; 1.011 en `esperado`.
+- **Por qué**: con n = 1/α ≈ 0,42 la NB acumula mucha masa en 0. Para que una celda con 0 consultas tenga `P(Y ≤ 0) < 0,05` se necesita ŷ > ~525, y la mayor predicción entre las 269 celdas con 0 consultas es 112. El residuo de Pearson tiene un piso de −1/√α ≈ −0,65. Es la cara opuesta del riesgo 5: en vez de marcar déficit en todas partes, el umbral NB con esta dispersión no lo marca en ninguna.
+- **Consecuencia**: el mapa distingue bien el **exceso** (polos de actividad), pero el **déficit** solo puede leerse como un orden (menor `p_low`, residuo más negativo), no como una categoría significativa al 5 %. Así se declara en la Fase 6 (D-402) y en `MODEL_CARD.md`.
+- **Pendiente para el autor**: decidir si en una iteración siguiente se prueba una definición alternativa, declarada de antemano (p. ej. un umbral de `p_low` menos exigente o un α estimado por anillo). No se hace aquí para no cambiar el protocolo después de ver los resultados.
+
+## D-309 · 2026-09-27 — Resultados de la evaluación
+- **Prueba (E2, única, commit `f6aef7e`)**: devianza B1 = 629,7 frente a B0 = 1.910,3 (D² 0,594 frente a −0,230). La referencia M2 obtiene 458,4 en prueba; se reporta, pero no se vuelve a elegir técnica (D-302). B1 sobrepredice el total de prueba (calibración 1,82): los bloques de prueba son periféricos y sus vecinos de entrenamiento son más densos.
+- **Contraste (E5)**: las celdas cubiertas (≤ 500 m) tienen residuos mayores que las no cubiertas (mediana −0,20 frente a −0,50; Cliff δ = +0,38; Mann-Whitney p ≈ 1e-27). Es estable con 400 m (δ = +0,38) y 750 m (δ = +0,34). Las celdas sin parada cercana consultan menos de lo que predice su vecindad. Es una asociación descriptiva: Trufi también mapea donde ya hay demanda.
+- **Espacial (E6)**: I de Moran del residuo = −0,004 (p = 0,45). No queda autocorrelación, lo que atenúa la limitación de D-106 (el bloque res 6 no cubría todo el alcance de la autocorrelación de la tasa bruta).
+- **Calibración (E7)**: B1 subpredice los deciles bajos (1–2) y los intermedios-altos (7–9) y sobrepredice el decil superior (0,79). Por anillo, D² baja de 0,74 (A1) a −0,19 (A4).
+- **Descripción (E8, M2, asociaciones)**: IRR por km de `dist_plaza_km` = 0,82 (IC 0,80–0,84); por unidad de `log1p(pop_ring1)` = 1,92 (1,59–2,32); por unidad de `log1p(pop_ring2)` = 0,68 (0,55–0,85). B1 usó k = 1 en 799 de 1.087 celdas.
+- **Sensibilidad (E9)**: Spearman del residuo frente a la referencia ≥ 0,897 en todas las variaciones (mínimo: Kontur 2022).
+- **Criterio de éxito (E10)**: se cumplen ambos criterios (`criterio_exito.md`).

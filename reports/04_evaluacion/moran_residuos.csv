@@ -1,0 +1,2 @@
+variable,vecindad,celdas,moran_I,EI,z_sim,p_sim,lisa_HH,lisa_LH,lisa_LL,lisa_HL
+pearson_residual,grid_ring k=1,1077,-0.0040650077817489146,-0.0009293680297397769,-0.21118460644964143,0.45,0,22,176,3
