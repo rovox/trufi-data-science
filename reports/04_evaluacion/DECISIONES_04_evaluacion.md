@@ -38,3 +38,18 @@ Se reconstruyen `dist_centro_km` (medida a la Plaza 14 de Septiembre) y los anil
 
 ## D-312 · Análisis de residuos de la técnica adoptada (E6b)
 Spearman del residuo frente a `dist_centro_km`, `log(population)` y `pop_ring1`; residuo por anillo y por municipio; Moran del residuo con k = 1, 2 y 3. Sirve para ver si queda estructura territorial que la técnica adoptada no capture.
+
+---
+
+## Resultados de la iteración 2
+
+## D-313 · 2026-09-27 — Resultados de la evaluación
+- **Estado**: aplicada — Fase 5 cerrada.
+- **Prueba** (E2, única, 2026-09-27 13:39, commit `ac9ecc7`, 12 bloques con el 11,8 % de las consultas): devianza de B1 = 981,7 frente a B0 = 1.807,2 (D² 0,765 frente a 0,567). La referencia M2 obtiene 1.210,0. B1 sobrepredice el total de la prueba (calibración 1,96). Una segunda ejecución del notebook leyó el archivo y no volvió a evaluar.
+- **Brecha** (E4): α = 2,60. Déficit al 5 %: 0 celdas (se repite D-308 de la iteración 1). `bajo_lo_esperado` (D-310): 23 celdas (1,7 %). `exceso`: 105 (7,6 %).
+- **Contraste GTFS** (E5): residuo mediano −0,13 en celdas cubiertas frente a −0,46 en no cubiertas; Cliff δ = +0,37 (p ≈ 3e-32). Estable con 400 y 750 m. Asociación descriptiva.
+- **Espacial** (E6): I de Moran del residuo = 0,13 (p = 0,002) con k = 1; desaparece con k = 2 (0,02; p = 0,06) y k = 3. Queda algo de parecido entre vecinas inmediatas, a diferencia de la iteración 1 (I ≈ 0).
+- **Análisis de residuos** (E6b, D-312): el residuo crece con la población de la celda (ρ = +0,25) y de su corona (ρ = +0,22), y baja con la distancia al centro (ρ = −0,13). B1 **no aprovecha toda la información de población**: subpredice en celdas más pobladas. Por anillo, B1 sobrepredice en A2 y A4 (observado/esperado 0,85 y 0,69) y subpredice en A3 (1,71).
+- **Descripción** (E8, M2, asociaciones): IRR por km al centro del área = 0,89 (IC 0,87–0,90); por unidad de log1p(corona 1) = 2,84 (2,26–3,57); por unidad de log1p(corona 2) = 0,74 (0,59–0,93).
+- **Sensibilidad** (E9): Spearman del ranking de brecha ≥ 0,867 en todas las variaciones (mínimo: filtro de 20 km). Con la Plaza como centro, Spearman = 1,000, porque B1 no usa la distancia.
+- **Criterio de éxito** (E10): se cumplen ambos criterios.

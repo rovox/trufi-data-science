@@ -1,0 +1,29 @@
+{
+  "adopted": "B1",
+  "reference_glm": "M2",
+  "trained_on": "80 % entrenamiento (bloques no reservados)",
+  "n_train_cells": 1078,
+  "b0_rate_per_inhabitant": 1.6391858971819295,
+  "b1": {
+    "min_neighbors": 3,
+    "k_max": 10
+  },
+  "reference_params": {
+    "const": -5.900117308003525,
+    "dist_centro_km": -0.1193740623858122,
+    "log1p_pop_ring1": 1.0431063509619083,
+    "log1p_pop_ring2": -0.29918804101070673,
+    "alpha": 2.626936509090764
+  },
+  "m3_params": {
+    "max_depth": null,
+    "min_samples_leaf": 20,
+    "learning_rate": 0.1
+  },
+  "features": [
+    "dist_centro_km",
+    "log1p_pop_ring1",
+    "log1p_pop_ring2"
+  ],
+  "seed": 42
+}
