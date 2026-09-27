@@ -1,5 +1,9 @@
-variante,celdas_ocupadas,area_km2,consultas_validas_dentro,pct_consultas_validas_dentro,adoptada
-todas_las_celdas,1146,40967.3,1920618,100.0,false
-componente_principal_k1,835,1181.4,1918899,99.91,true
-componente_principal_k2,1020,1903.2,1920156,99.976,false
-componente_principal_k3,1079,2304.6,1920516,99.995,false
+umbral_distancia_para_area_km,regla_componente,celdas_ocupadas,area_km2,consultas_coord_ok_dentro,pct_consultas_coord_ok_dentro,iteracion
+20,k=1,797,1076.1,1923704,99.807,—
+30,k=1,835,1181.4,1923861,99.815,1
+40,k=1,916,1505.1,1924920,99.87,—
+50,k=1,919,1505.7,1924920,99.87,—
+sin filtro,ninguna (todas las celdas),1516,485940.1,1927430,100.0,—
+sin filtro,k=1,919,1505.7,1924920,99.87,2 (adoptada)
+sin filtro,k=2,1076,1965.4,1926129,99.933,—
+sin filtro,k=3,1195,3040.9,1926707,99.962,—

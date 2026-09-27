@@ -1,5 +1,5 @@
 universo,gtfs_covered,celdas,consultas,poblacion,celdas_sin_consultas,pct_celdas,pct_consultas,consultas_por_1000_hab
-todas las celdas,0,678,13367,154799,367,53.09,0.7,86.35
-todas las celdas,1,599,1905473,1011699,25,46.91,99.3,1883.44
-celdas del modelo,0,494,13176,154378,245,45.45,0.69,85.35
-celdas del modelo,1,593,1905452,1011690,24,54.55,99.31,1883.43
+todas las celdas,0,1003,13975,206342,587,61.61,0.73,67.73
+todas las celdas,1,625,1910603,1019966,24,38.39,99.27,1873.2
+celdas del modelo,0,764,13761,205731,421,55.32,0.72,66.89
+celdas del modelo,1,617,1910575,1019948,23,44.68,99.28,1873.21

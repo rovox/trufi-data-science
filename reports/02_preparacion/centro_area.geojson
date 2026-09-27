@@ -1,0 +1,9 @@
+{
+"type": "FeatureCollection",
+"name": "centro_area",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "punto": "centroide_area (D-022)", "lat": -17.455312450529984, "lon": -66.121631086221413 }, "geometry": { "type": "Point", "coordinates": [ -66.121631086221413, -17.455312450529984 ] } },
+{ "type": "Feature", "properties": { "punto": "plaza_14_septiembre (sensibilidad)", "lat": -17.393583, "lon": -66.157014 }, "geometry": { "type": "Point", "coordinates": [ -66.157014, -17.393583 ] } }
+]
+}
