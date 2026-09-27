@@ -1,0 +1,10 @@
+sklearn: 1.9.1
+statsmodels: 0.15.0
+h3: 4.5.0
+esda: 2.10.0
+libpysal: 4.15.0
+scipy: 1.18.1
+numpy: 2.5.3
+polars: 1.44.2
+pandas: 3.0.6
+python: 3.12.14
