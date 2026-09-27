@@ -1,241 +1,4 @@
 # Bitácora de decisiones — trufi-data-science
-
-Registro cronológico de las decisiones metodológicas del proyecto completo,
-con su justificación y evidencia, a medida que se van descubriendo. Cubre
-todas las etapas construidas como notebooks (Etapa 1 en adelante).
-Complementa, sin reemplazar, la convención de `reports/<etapa>/README.md` —
-esta bitácora documenta decisiones tomadas *antes* de tener resultados que
-reportar (elección de dataset, definición de variables, qué hacer ante una
-anomalía descubierta), no hallazgos finales.
-
-## Etapa 1 · Comprensión de datos (7.2)
-
-Reconstruida como un único notebook consolidado,
-`notebooks/01_comprension_datos.ipynb` (reemplaza a `src/01_audit_schema.py`
-… `src/08_h3_preview.py`, retirados). Diagnóstico y decisiones, **no**
-filtrado — las filas no se eliminan aquí; eso sigue siendo trabajo de la
-Etapa 2 (`src/09_select_filter.py`, sin tocar). Sin archivos `.md` extensos
-por sub-sección: el detalle vive en el notebook, y `reports/01_data_understanding/`
-solo guarda `README.md` (resumen ejecutable corto), `schema_diff.csv` y las
-figuras.
-
-### 2026-09-25 — Un solo notebook, no cinco
-
-- **Decisión**: la Etapa 1 se reconstruye como un único notebook narrado
-  (`01_comprension_datos.ipynb`), no como cinco notebooks separados (un
-  intento anterior, descartado antes de comprometerse a Git).
-- **Por qué**: los pasos de esta etapa (auditoría, consolidación, calidad,
-  distancia, cobertura temporal/usuarios, proporciones, H3) son parte de una
-  sola narrativa de "entender el dataset" — partirla en cinco notebooks
-  fragmentaba el relato sin ganar nada, y cada uno terminaba escribiendo su
-  propio reporte `.md` largo que duplicaba lo que el notebook ya mostraba.
-- **Imports compartidos**: todas las librerías comunes (`numpy`, `pandas`,
-  `polars`, `matplotlib`, `h3`) y las utilidades de carpetas/figuras viven en
-  `trufi_ds/notebook_setup.py`, importado con
-  `from trufi_ds.notebook_setup import *` — un notebook nuevo no repite
-  imports sueltos.
-
-### 2026-09-25 — Coordenadas físicamente imposibles vs. fuera de bbox
-
-- **Decisión**: distinguir "fuera del bbox metropolitano" (3.514 filas, en su
-  mayoría viajes interurbanos legítimos dentro de Bolivia) de "coordenada
-  físicamente imposible para Bolivia" (15 filas, p. ej. `lon≈104.9`) — un
-  hallazgo que el análisis original no separaba explícitamente.
-- **Por qué**: conflar ambos grupos bajo "fuera de bbox, probablemente
-  legítimo" ocultaba 15 filas que son error de datos real, no viaje
-  interurbano. Al graficar las celdas H3 agregadas (notebook §9), estas 15
-  filas alcanzaban a distorsionar la escala del mapa entero — la corrección
-  fue primero visual (el gráfico no cuadraba), después analítica.
-- **Verificado en código** (`notebooks/01_comprension_datos.ipynb` §6.2):
-  15 filas fuera de un bbox amplio de Bolivia (lat -23/-9, lon -70/-56).
-
-### 2026-09-25 — Unificación de esquema (español/inglés) y fallback Latin-1
-
-- **Decisión**: normalizar los 4 pares de columnas español/inglés
-  (`hora`→`hour`, `dia_de_semana`→`day_of_week`, `dia_de_mes`→`day_of_month`,
-  `fin_de_semana`→`weekend`) a un solo nombre canónico antes de concatenar;
-  mantener `year_week_number`/`time_of_day` como columnas opcionales
-  (null en los archivos antiguos) en vez de descartarlas.
-- **Por qué**: evita que un campo equivalente quede disperso en dos columnas
-  sparse. Los dos campos nuevos no tienen riesgo de pérdida de información y
-  pueden ser útiles más adelante.
-- **Verificado en código** (`notebooks/01_comprension_datos.ipynb` §2-3): 79/85
-  archivos son idénticos al esquema de referencia; los 6 que difieren son
-  exactamente el lote `2024-04-29` → `2024-06-09`.
-- **Codificación**: esos mismos 6 archivos requieren fallback Latin-1
-  (`utils.read_csv_safe`) por caracteres acentuados en `dest_municipio` (p.
-  ej. "Villa Santivañez"). **Nota metodológica**: el conteo de archivos con
-  problema de codificación solo es confiable si se toma de una lectura
-  completa del archivo — una lectura de solo encabezado (`n_rows=0`) puede
-  no alcanzar los bytes problemáticos si están más adelante en el archivo, y
-  además se observó no-determinismo entre un proceso Python plano y un
-  kernel de Jupyter para ese caso límite. El notebook reporta el conteo
-  tomado de la lectura completa (consolidación), no de la auditoría de
-  encabezados.
-- **Ambas anomalías caen en el mismo lote** → evidencia de un cambio en el
-  pipeline de exportación de Trufi alrededor de abril 2024, no un problema de
-  contenido de datos.
-
-### 2026-09-25 — Duplicados: qué se elimina y qué se conserva
-
-- **Decisión**: los 104 duplicados exactos (todas las columnas) se marcan
-  para eliminar en la Etapa 2; los 137 duplicados `userID`+`ts` (con OD
-  distinto) se conservan para resolver por sesionización.
-- **Por qué**: los duplicados exactos son errores de exportación sin
-  ambigüedad. Los duplicados `userID`+`ts` incluyen consultas repetidas
-  reales (mismo usuario, mismo segundo, destino distinto) que no deben
-  descartarse a ciegas.
-- **Verificado en código** (`notebooks/01_comprension_datos.ipynb` §4): 104
-  exactos (0.005%), 137 en `userID`+`ts` (0.007%), 0 nulos en `userID`.
-
-### 2026-09-25 — `distancia`: unidades y naturaleza
-
-- **Decisión**: usar `distancia` tal cual (metros, distancia en línea recta)
-  para cualquier variable basada en distancia; no reinterpretar como
-  distancia de red/ruta.
-- **Por qué/verificado**: correlación 0.999997 contra un recálculo haversine
-  sobre una muestra de 200k filas; error relativo mediano 0.14% asumiendo
-  metros (0% de calce asumiendo kilómetros) — descarta la hipótesis de
-  kilómetros.
-
-### 2026-09-25 — Vacíos de registro: no imputar
-
-- **Decisión**: el hueco estructural de 7 semanas (2024-03-11 → 2024-04-22)
-  se documenta como limitación estructural, no se imputa.
-- **Por qué**: no hay forma confiable de reconstruir demanda real durante un
-  vacío de exportación; imputar introduciría un sesgo no verificable. Cae
-  justo antes del cambio de esquema/codificación del punto anterior —
-  probable relación con el mismo cambio de pipeline de exportación.
-- **Verificado en código** (`notebooks/01_comprension_datos.ipynb` §6-7):
-  91 semanas esperadas, 7 sin datos, todas consecutivas.
-
-### 2026-09-25 — Viabilidad del target individual (`userID`)
-
-- **Decisión**: `userID` es a nivel instalación (no efímero por sesión) →
-  un target individual es viable; se complementa con agregación H3 dada la
-  centralización observada.
-- **Por qué/verificado**: mediana de 5 consultas/usuario, 77.9% de usuarios
-  con ≥2 consultas (supera el umbral pre-especificado de 30%), mediana de
-  vida de 9.0 días entre primera y última consulta, 25.3% de usuarios activos
-  en más de un año calendario. Los umbrales de decisión estaban
-  pre-especificados antes de correr el análisis (no ajustados post-hoc).
-- **Filtrar antes de features de movimiento**: 2,156 pares de "salto
-  imposible" (<2 min, >~11 km) detectados — ruido de bots/dispositivos
-  compartidos/GPS, no evidencia contra la identidad a nivel instalación.
-
-### 2026-09-25 — La variable objetivo: conteo de consultas por celda H3
-
-- **Decisión**: la variable objetivo base del proyecto es el **conteo de
-  consultas por celda H3** (resolución 8, borde ~531m / apotema ~460m —
-  verificado en código en `notebooks/01_comprension_datos.ipynb` §9, no
-  asumido), no un target puramente
-  individual — aunque el target individual es viable (punto anterior), la
-  fuerte centralización espacial hace que la agregación por celda sea la
-  vista más informativa para modelar demanda territorial.
-- **Por qué**: las 10 celdas de origen con más demanda concentran 42.0% de
-  todas las consultas (35.9% en destino) — un patrón que un target
-  puramente individual no expone directamente. Este conteo por celda es la
-  base de la que se derivan tanto `indicators_table.parquet` (Etapa 2,
-  celda×semana) como `panel_hueco_c.parquet` (Etapa 3, celda×periodo
-  completo).
-- **Verificado en código** (`notebooks/01_comprension_datos.ipynb` §9): 1,523
-  celdas con consultas de origen, 1,840 de destino, resolución H3 8.
-
-## Etapa 3 (Hueco C)
-
-Hipótesis: las celdas H3 con población pero sin cobertura GTFS tienen una
-tasa de consultas por habitante menor que las celdas cubiertas, controlando
-por distancia al centro. Pregunta **explicativa** (un coeficiente + p-valor),
-no predictiva — de ahí la elección de un GLM Poisson en vez de un modelo de
-machine learning. Notebooks `06`–`13` (renumerados desde `01`–`08` al
-incorporarse la Etapa 1 como notebooks).
-
-### 2026-09-25 — Release de población Kontur
-
-- **Decisión**: usar el release `2023-11-01` como principal (más cercano al
-  punto medio del periodo de consultas, 2022-09 a 2024-06); usar `2022-06-30`
-  solo como sensibilidad (notebook 12).
-- **Por qué**: la población es un control estructural, casi fijo — no varía
-  por consulta y no se cruza "por fecha" como el clima. No se interpola entre
-  releases ni se asigna una fecha distinta a cada celda (sería precisión
-  falsa a esa granularidad).
-- **Verificado en código** (notebook 07, no asumido): ambos releases están en
-  H3 resolución 8 — coincide con la resolución por defecto del proyecto
-  (`H3_RESOLUTION_DEFAULT`), así que el cruce con las celdas de consultas es
-  un join directo, sin reagregación de padres.
-
-### 2026-09-25 — Sin covariables climáticas
-
-- **Decisión**: no se incluye ninguna variable meteorológica en el modelo.
-- **Por qué**: el modelo es explicativo de una sola hipótesis, agregado sobre
-  todo el periodo a nivel celda — no una serie temporal. El clima varía poco
-  entre zonas dentro de un área tan compacta como el eje metropolitano de
-  Cochabamba (~30 km). Cada variable añadida sin justificación teórica es una
-  que hay que defender ante el tribunal; se mantienen solo las tres variables
-  ya justificadas: cobertura GTFS, distancia al centro, población (offset).
-
-### 2026-09-25 — Centro exógeno: Plaza 14 de Septiembre
-
-- **Decisión**: `dist_centro_km` se mide contra un punto fijo y exógeno
-  (Plaza 14 de Septiembre), no contra la celda de mayor población ni el
-  centroide del área de consultas.
-- **Coordenadas**: `lat=-17.393583, lon=-66.157014` (provistas por el autor).
-- **Por qué exógeno**: usar la celda con más población introduciría
-  correlación artificial con el offset del modelo; usar el centroide del área
-  de consultas usaría la variable dependiente para construir una variable
-  independiente. Ambos son *data leakage*. La plaza es el centro histórico,
-  político y comercial de Cochabamba — no depende de los datos del estudio.
-- **Pendiente**: verificar visualmente en openstreetmap.org que el punto cae
-  sobre la plaza (a veces Nominatim/fuentes de terceros devuelven el
-  centroide de un área administrativa homónima) antes de tratarlo como final
-  en la monografía.
-- **Sensibilidad** (notebook 12): se repetirá con el centroide del municipio
-  de Cercado (GeoBolivia) — fuente y fecha de consulta a registrar aquí
-  cuando se implemente ese notebook.
-
-### 2026-09-25 — Reutilizar el umbral de cobertura GTFS de la Etapa 2
-
-- **Decisión**: `cubierta_500m` usa el mismo umbral que
-  `GTFS_COVERAGE_THRESHOLD_M = 500` ya definido en `trufi_ds/config.py` y
-  documentado en `reports/02_data_preparation/05_gtfs_coverage.md`.
-- **Por qué**: consistencia metodológica con la Etapa 2 (≈5-7 min caminando,
-  estándar de accesibilidad de transporte). Sensibilidad a 300m en notebook
-  12.
-
-### 2026-09-25 — Panel a nivel celda, no celda × semana
-
-- **Decisión**: el panel del modelo Poisson agrega consultas por celda sobre
-  **todo el periodo** (notebook 06), a diferencia de
-  `data/processed/indicators_table.parquet` (celda × semana, de la Etapa 2).
-- **Por qué**: la pregunta es transversal (compara celdas entre sí), no una
-  serie temporal — no hace falta ni conviene la granularidad semanal aquí.
-- **Fuente**: se construye desde `data/processed/prep_04_h3.parquet` (salida
-  congelada del script `12_build_h3.py`), reutilizando el filtrado/exclusión
-  ya decidido en la Etapa 2, no desde los 85 CSV crudos.
-
-### 2026-09-25 — Modelo: GLM Poisson con offset, no ML
-
-- **Decisión**: regresión Poisson (Binomial Negativa si hay sobredispersión),
-  no Random Forest/XGBoost.
-- **Por qué**: el objetivo es un conteo (no puede modelarse con regresión
-  lineal) y la pregunta es explicativa — se necesita un coeficiente con
-  p-valor e intervalo de confianza, no un MAE. `offset(log(población))`
-  convierte el modelo en una tasa (consultas por habitante), no volumen
-  bruto.
-
-### 2026-09-25 — Esta etapa reemplaza el plan de Stage 3 "features"/RF-XGBoost
-
-- **Contexto**: `docs/ROADMAP.md`/`README.md` en `main` describían un
-  Stage 3-6 (Random Forest/XGBoost, evaluación, despliegue FastAPI) como
-  completo, pero esos scripts (`18`-`28`, `trufi_ds/api.py`) no existen en
-  `main` — viven únicamente en la rama sin integrar
-  `claude/laughing-rubin-ih0aud` (ver `ARCHITECTURE.md` §7/§8).
-- **Decisión**: el análisis Kontur/Poisson de esta bitácora pasa a ser el
-  Stage 3 real del proyecto en `main`. El contenido de la rama sin integrar
-  queda documentado como superado para este propósito, no fusionado ni
-  depurado como parte de este trabajo.
-
-# Bitácora de decisiones — trufi-data-science
 # (reiniciada en refactor/crisp-dm-restart — registro anterior en DECISIONES_ARCHIVO_2026-09.md)
 
 ## Etapa 1 · Comprensión de datos (EDA completo)
@@ -260,7 +23,9 @@ incorporarse la Etapa 1 como notebooks).
 - **Decisión**: `year_week_number` y `time_of_day` son 100% nulos en `lote_original`. Tipo: ESTRUCTURAL (columna no existe en ese lote). NO se imputan.
 - **Implicación**: no se pueden usar como variables de feature sin restricción al lote 2024.
 
-### D-005 · 2026-09-26 — Clasificación espacial de 3 vías
+### D-005 · 2026-09-26 — Clasificación espacial de 3 vías `[SUPERADA POR D-009 Y D-018]`
+
+> **Superada.** La categoría (3) "fuera del eje" y el flag `fuera_eje` fueron reemplazados primero por el área GTFS (D-009) y luego por el área de orígenes válidos (D-018). Se mantienen vigentes solo las reglas (1) y (2).
 
 - **Decisión**: distinguir 3 categorías en las coordenadas de origen:
   (1) coord cero (0,0) — bug GPS, (2) coord imposible (fuera de Bolivia) — error real,
@@ -284,7 +49,9 @@ incorporarse la Etapa 1 como notebooks).
 - **Evidencia**: `reports/01_data_understanding/usuarios_anomalos.csv`
 
 
-### D-009 · 2026-09-26 — Área de estudio = convex hull GTFS + buffer de 1 km
+### D-009 · 2026-09-26 — Área de estudio = convex hull GTFS + buffer de 1 km `[SUPERADA POR D-018]`
+
+> **Superada** por D-018 (Etapa 2): el área deja de definirse con GTFS; GTFS pasa a ser solo variable de contraste (D-017).
 
 - **Decisión**: el área de estudio se define como el convex hull de las paradas
   y shapes del feed GTFS de Cochabamba, más un buffer de 1 km (caminata típica
@@ -323,3 +90,55 @@ incorporarse la Etapa 1 como notebooks).
   no es un estrato del fenómeno sino un accidente del pipeline de exportación.
 - **Evidencia**: `cobertura_columnas_por_lote.csv` (§3–4); §5.2 (por archivo),
   §9 y §11.2 reescritos sin `source_batch`.
+
+
+## Transición a la Etapa 2 · Encuadre predictivo (2026-09-27)
+
+Las decisiones D-013 a D-019 fijan el paso del encuadre explicativo (GLM +
+p-valor sobre `gtfs_covered`) al encuadre predictivo. Pregunta vigente:
+*¿Cómo estimar el número esperado de consultas de ruta de Trufi App por celda
+H3 a partir de la población, la ubicación y el contexto territorial de cada
+celda, mediante técnicas geoespaciales de ciencia de datos?* El detalle
+operativo de cada una vive en `reports/02_preparacion/DECISIONES_02_preparacion.md`
+(D-101 a D-110).
+
+### D-013 · 2026-09-27 — Duplicados exactos: eliminar copias, conservar una
+
+- **Decisión**: en cada grupo de filas idénticas (todas las columnas salvo linaje `source_*`) se conserva una fila y se eliminan las copias sobrantes.
+- **Cifra**: 104 filas marcadas en 44 grupos → **60 filas eliminadas** (no 104 ni ~52: `is_duplicated()` marca todas las copias).
+- **Evidencia**: `reports/00_verificacion_cifras.csv`; aplicación en `reports/02_preparacion/tabla_flujo_limpieza.csv`.
+
+### D-014 · 2026-09-27 — `gtfs_covered` = parada GTFS a ≤ 500 m del centroide
+
+- **Decisión**: `dist_stop_m` = distancia (UTM 19S) del centroide de la celda H3 a la **parada** GTFS más cercana (no al trazado); `gtfs_covered = 1` si `dist_stop_m ≤ 500`.
+- **Por qué**: 500 m ≈ 6 min de caminata, umbral estándar de accesibilidad; la parada es el punto donde el usuario accede al servicio. Sensibilidad 400/500/750 m solo en el contraste (Fase 5, E9).
+- **Uso**: solo contraste (D-017).
+
+### D-015 · 2026-09-27 — Filtro `distancia ≤ 30 km`
+
+- **Decisión**: se excluyen las consultas con `distancia` origen–destino > 30 km (viajes interurbanos que no describen demanda intraurbana).
+- **Por qué**: el P99 de `distancia` es 19,6 km y el P99,9 es 41,0 km (`reports/01_data_understanding/distancia_percentiles.csv`); 30 km deja fuera la cola interurbana sin tocar el eje metropolitano (~30 km de extremo a extremo). Revisa la recomendación anterior de "conservar viajes largos > Q3+3·IQR", que usaba un umbral mucho menor (~17 km).
+- **Sensibilidad**: 20/30/50 km (`reports/02_preparacion/sensibilidad_umbral_km.csv`).
+
+### D-016 · 2026-09-27 — Auditoría de *leakage* L1–L8
+
+- **Decisión**: antes de modelar se verifican ocho fuentes de fuga (target en features, vecinos del target, área definida por conteos, escalado previo a partir, prueba tocada, GTFS como predictor, bloques compartidos, imputación con información global).
+- **Evidencia**: `reports/02_preparacion/auditoria_leakage.csv`.
+
+### D-017 · 2026-09-27 — GTFS fuera del modelo, solo contraste
+
+- **Decisión**: `dist_stop_m`, `gtfs_covered` y `n_rutas_500m` nunca son predictores. Se usan solo después de modelar, para comparar la brecha (residuos) entre celdas cubiertas y no cubiertas.
+- **Por qué**: si la cobertura entra como predictor, el modelo aprende que las celdas sin rutas consultan poco y **espera** poco en ellas; su residuo queda cerca de cero y el mapa de brecha deja de señalar lo que se busca.
+- **Predictores vigentes**: `dist_plaza_km`, `log1p(pop_ring1)`, `log1p(pop_ring2)`; exposición `log(population)`.
+
+### D-018 · 2026-09-27 — Área = envolvente de orígenes válidos + 1 km
+
+- **Decisión**: el área de estudio es la envolvente convexa de los orígenes de consultas válidas (coordenadas OK, `distancia ≤ 30 km`, usuario no anómalo) de la **componente espacial principal**, más un buffer de 1 km. Supersede D-009.
+- **Por qué**: el objetivo es predictivo y el área debe corresponder al soporte espacial de los datos, no a un polígono operativo externo (GTFS). La componente principal (celdas H3 r8 ocupadas y contiguas, `grid_disk(c, 1)`) evita que 11 orígenes aislados en La Paz, Oruro y Santa Cruz estiren la envolvente a ~41.000 km². Se define por ubicaciones, no por conteos.
+- **Evidencia**: `reports/02_preparacion/area_estudio.geojson`, `reports/02_preparacion/area_estudio_variantes.csv`; D-101.
+
+### D-019 · 2026-09-27 — Nomenclatura en inglés, nombres completos, sufijo de unidad
+
+- **Decisión**: desde la Etapa 2 las columnas usan nombres en inglés completos, sin abreviaturas ambiguas y con sufijo de unidad: `h3_cell`, `query_count`, `user_count`, `population`, `pop_ring1`, `pop_ring2`, `dist_plaza_km`, `dist_stop_m`, `gtfs_covered`, `block_id`, `x_utm`, `y_utm`, `h3_origin`/`h3_destination`, `lat_origin`/`lon_origin`, `lat_destination`/`lon_destination`.
+- **Por qué**: una sola convención entre notebooks, reportes y monografía; la unidad en el nombre evita confundir km con m.
+- **Alcance**: la Etapa 1 conserva sus nombres originales (`lat_orig`, `n_consultas`, …); el renombrado ocurre al leer `queries.parquet` en la Etapa 2.
