@@ -1,2 +1,2 @@
 ciudad,n_celdas,k_vecinos,moran_I,EI,p_sim,n_hot_spots_HH,n_cold_spots_LL
-Cochabamba (área GTFS),950,6,0.71024,-0.001054,0.001,52,327
+Cochabamba (área GTFS),950,6,0.71024,-0.001054,0.001,48,352
