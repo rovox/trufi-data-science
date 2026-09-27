@@ -25,6 +25,8 @@ dependencies = [
     "pyogrio>=0.13.0",
     "esda>=2.10.0",
     "libpysal>=4.15.0",
+    "runcell>=0.2.4",
+    "jupyter-server>=2.21.1",
 ]
 
 [dependency-groups]

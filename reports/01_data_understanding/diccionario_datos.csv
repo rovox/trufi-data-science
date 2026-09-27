@@ -22,4 +22,6 @@ year,Int32,0,0.0,2022.0 – 2024.0,Año ISO de la semana de la consulta,Derivada
 week,Int32,0,0.0,1.0 – 52.0,Número de semana ISO (1–53),Derivada
 flag_coord_cero,Boolean,0,0.0,n/a,"",""
 flag_coord_imposible,Boolean,0,0.0,n/a,"",""
-flag_fuera_eje,Boolean,0,0.0,n/a,"",""
+flag_dentro_area_gtfs,Boolean,0,0.0,n/a,"",""
+h3_orig,String,12,0.001,n/a,"",""
+h3_dest,String,3,0.0,n/a,"",""

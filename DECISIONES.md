@@ -282,3 +282,44 @@ incorporarse la Etapa 1 como notebooks).
 - **Decisión**: un usuario se marca como anómalo si activa ≥ 2 de 6 señales (volumen >1000, tasa >50/día, dispersión >200 celdas, ráfaga >100/día, rutina <5% OD repetidos con >100 consultas, intervalo mediano <60 seg).
 - **Implicación en preparación**: filtrar o ponderar sus consultas antes de agregar a celda H3.
 - **Evidencia**: `reports/01_data_understanding/usuarios_anomalos.csv`
+
+
+### D-009 · 2026-09-26 — Área de estudio = convex hull GTFS + buffer de 1 km
+
+- **Decisión**: el área de estudio se define como el convex hull de las paradas
+  y shapes del feed GTFS de Cochabamba, más un buffer de 1 km (caminata típica
+  a una parada: 500 m – 1 km). Reemplaza el `BBOX` rectangular y el flag
+  `fuera_eje` de D-005 por `flag_dentro_area_gtfs`.
+- **Por qué**: un `BBOX` rectangular es arbitrario; el polígono GTFS es
+  reproducible, justificable y alineado con el OE1.
+- **Evidencia**: `reports/01_data_understanding/area_estudio_gtfs.geojson`
+
+### D-010 · 2026-09-26 — Kontur se integra por ID H3, no por geometría
+
+- **Decisión**: la población Kontur se integra a las celdas de consulta
+  mediante join por columna `h3`, no por spatial join ni filtro de bbox.
+- **Por qué**: Kontur ya trae el ID H3 en resolución 8; el join por ID es
+  robusto al CRS (que en los .gpkg viene en EPSG:3857) y más eficiente.
+- **Verificación**: población Kontur 2023 dentro del área GTFS = 1.18 M
+  (orden de magnitud del eje metropolitano; algo por debajo de 1.5–2 M).
+- **Evidencia**: columnas `poblacion_orig`/`poblacion_dest` en `df` y `poblacion`
+  en `data/interim/h3_orig.parquet` / `h3_dest.parquet`.
+
+### D-011 · 2026-09-26 — Moran's I se calcula por ciudad y como LISA
+
+- **Decisión**: no se reporta Moran's I global sobre todas las celdas
+  de Bolivia. Se calcula sobre celdas dentro del área GTFS (una fila por
+  ciudad; hoy solo Cochabamba) y se complementa con LISA.
+- **Por qué**: KNN sobre celdas de distintas ciudades produce un I dominado
+  por la separación interurbana, no por patrones intraurbanos.
+- **Evidencia**: `reports/01_data_understanding/moran_i_por_ciudad.csv`,
+  `figuras/lisa_clusters_demanda.png`.
+
+### D-012 · 2026-09-26 — source_batch es linaje, no estrato analítico
+
+- **Decisión**: `source_batch` se conserva como columna de trazabilidad
+  pero no se usa como variable de estratificación en los análisis.
+- **Por qué**: los dos lotes difieren solo en 2 columnas 100% nulas en uno;
+  no es un estrato del fenómeno sino un accidente del pipeline de exportación.
+- **Evidencia**: `cobertura_columnas_por_lote.csv` (§3–4); §5.2 (por archivo),
+  §9 y §11.2 reescritos sin `source_batch`.
