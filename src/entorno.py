@@ -85,7 +85,7 @@ def guardar_tabla(df: pl.DataFrame | pd.DataFrame, nombre: str, fase: str) -> pl
     if isinstance(df, pd.DataFrame):
         df.to_csv(ruta, index=False, float_format="%.6g")
     else:
-        df.write_csv(ruta, float_precision=6)
+        df.write_csv(ruta)
     return df
 
 
