@@ -1,0 +1,13 @@
+variable,objetivo,spearman
+population,query_count,0.855000
+population,tasa_1000,0.710000
+pop_ring1,query_count,0.836000
+pop_ring1,tasa_1000,0.721000
+pop_ring2,query_count,0.804000
+pop_ring2,tasa_1000,0.701000
+dist_centro_km,query_count,-0.697000
+dist_centro_km,tasa_1000,-0.677000
+dist_centroide_km,query_count,-0.476000
+dist_centroide_km,tasa_1000,-0.485000
+dist_trazado_m,query_count,-0.763000
+dist_trazado_m,tasa_1000,-0.701000

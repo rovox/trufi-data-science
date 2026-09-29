@@ -1,0 +1,16 @@
+medida,valor
+filas_agency,43.000000
+filas_calendar,2.000000
+filas_fare_attributes,626.000000
+filas_fare_rules,626.000000
+filas_feed_info,1.000000
+filas_frequencies,626.000000
+filas_routes,141.000000
+filas_shapes,343381.000000
+filas_stop_times,99161.000000
+filas_stops,22320.000000
+filas_trips,626.000000
+trazados,626.000000
+trazado_mediana_km,20.220000
+trazados_total_km,12737.300000
+frecuencia_mediana_min,5.000000
