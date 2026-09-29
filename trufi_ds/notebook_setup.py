@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
+from collections.abc import Callable
 from pathlib import Path
 
 import h3
@@ -22,6 +24,7 @@ import config
 __all__ = [
     "Path",
     "config",
+    "cronometro",
     "guardar_figura",
     "guardar_metricas",
     "guardar_tabla",
@@ -34,6 +37,18 @@ __all__ = [
 ]
 
 plt.rcParams.update({"figure.dpi": 100, "axes.spines.top": False, "axes.spines.right": False})
+
+
+def cronometro() -> Callable[[str], None]:
+    """Devuelve `tiempo(seccion)`, que imprime lo que tardó cada sección y el acumulado."""
+    marcas = [time.perf_counter()]
+
+    def tiempo(seccion: str) -> None:
+        ahora = time.perf_counter()
+        print(f"⏱ {seccion}: {ahora - marcas[-1]:.1f} s (acumulado {ahora - marcas[0]:.0f} s)")
+        marcas.append(ahora)
+
+    return tiempo
 
 
 def _carpeta(fase: str) -> Path:

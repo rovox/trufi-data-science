@@ -20,6 +20,15 @@ RESULTADOS = PROJECT_ROOT / "resultados"
 GTFS_DIR = DATA_RAW / "gtfs"
 KONTUR_2023_GPKG_GZ = DATA_RAW / "kontur_population_BO_20231101.gpkg.gz"
 
+# Salidas de 02_preprocesamiento (data/interim/), entradas del feature engineering
+QUERIES_CONSOLIDADAS = DATA_INTERIM / "queries.parquet"
+USUARIOS_ANOMALOS = DATA_INTERIM / "usuarios_anomalos.parquet"
+AREA_ESTUDIO = DATA_INTERIM / "area_estudio.geojson"
+QUERIES_LIMPIAS = DATA_INTERIM / "queries_limpias.parquet"
+KONTUR_H3R8 = DATA_INTERIM / "kontur_2023_h3r8.parquet"
+SEMANAS = DATA_INTERIM / "semanas.parquet"
+CELDAS_OBJETIVO = DATA_INTERIM / "celdas_objetivo.parquet"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # EJECUCIÓN
 # ─────────────────────────────────────────────────────────────────────────────

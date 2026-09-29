@@ -15,9 +15,9 @@ esperadas sirve para priorizar dónde revisar o mapear rutas, no para pronostica
 demanda futura. El proyecto sigue CRISP-DM hasta la evaluación; la
 implementación queda como propuesta.
 
-**Estado.** El EDA está cerrado. El preprocesamiento y el feature engineering
-son los siguientes pasos; el modelado, la evaluación y la propuesta vienen
-después, sobre esa base.
+**Estado.** El EDA y el preprocesamiento están cerrados. El feature engineering
+es el siguiente paso; el modelado, la evaluación y la propuesta vienen después,
+sobre esa base.
 
 ---
 
@@ -45,15 +45,15 @@ validación en campo de las zonas priorizadas y contraste con fuentes censales.
 | Fase CRISP-DM | Notebook | Resultados | Estado |
 |---|---|---|---|
 | Comprensión de los datos | `01_EDA.ipynb` | `resultados/01_eda/` | Cerrado |
-| Preparación de los datos | `02_preprocesamiento.ipynb` | `resultados/02_preprocesamiento/`, `data/interim/` | Siguiente |
-| Preparación de los datos | `03_feature_engineering.ipynb` | `resultados/03_feature_engineering/`, `data/processed/` | Pendiente |
+| Preparación de los datos | `02_preprocesamiento.ipynb` | `resultados/02_preprocesamiento/`, `data/interim/` | Cerrado |
+| Preparación de los datos | `03_feature_engineering.ipynb` | `resultados/03_feature_engineering/`, `data/processed/` | Siguiente |
 | Modelado | notebook de modelado | `resultados/04_modelado/` | Pendiente |
 | Evaluación | notebook de evaluación | `resultados/05_evaluacion/` | Pendiente |
 | Propuesta de implementación | notebook de propuesta | `resultados/06_propuesta/` | Pendiente |
 
 - La comprensión del negocio no tiene notebook: su contenido es la §2.
 - El despliegue se reemplaza por una propuesta no ejecutada.
-- Solo el EDA está al día; los notebooks `02_preparacion_datos`, `03_modelado`,
+- El EDA y el preprocesamiento están al día; los notebooks `02_preparacion_datos`, `03_modelado`,
   `04_evaluacion` y `05_despliegue` son anteriores y no se ejecutan hasta
   rehacerse en su fase.
 
@@ -130,28 +130,56 @@ y fijar qué debe hacer el preprocesamiento. El notebook no escribe en `data/`.
 vigente desde 2024. Las relaciones son asociaciones sobre todas las zonas, no
 efectos.
 
-**Qué habilita.** Los pasos que debe aplicar la Fase 2 (§5), cada uno respaldado
-por una cifra de esta fase. La autocorrelación, que persiste a varios km, exige
+**Qué habilita.** Los pasos que aplica la Fase 2 (§5), cada uno respaldado por
+una cifra de esta fase. La autocorrelación, que persiste a varios km, exige
 validar por bloques espaciales. La sobredispersión y los ceros orientan hacia
 modelos de conteo con offset poblacional. La elección del centro de referencia
 queda abierta.
 
 ---
 
-## 5. Fase 2 · Preprocesamiento (diseño previsto)
+## 5. Fase 2 · Preprocesamiento
 
-Aplica los pasos que fijó el EDA y es el primer notebook que escribe en `data/`:
+**Objetivo.** Aplicar en orden los pasos que fijó el EDA y dejar en
+`data/interim/` los datasets que usa el feature engineering. Es el primer
+notebook que escribe en `data/`.
 
-1. Consolidar los CSV con un esquema y linaje (`data/interim/queries.parquet`).
-2. Quitar orígenes en (0,0) o fuera de Bolivia y las copias de duplicados
-   exactos.
-3. Delimitar el área con la regla de la componente H3 y guardarla.
-4. Quitar consultas de más de 50 km y de usuarios anómalos
-   (`queries_limpias.parquet`).
-5. Contar consultas por zona H3 res 8 y unir las zonas Kontur del área con 0
-   (`celdas_objetivo.parquet`).
-6. Registrar las semanas observadas y parciales para normalizar por semana
-   (`Y_i / W_obs`).
+**Qué se hizo.**
+
+| Paso | Salida en `data/interim/` |
+|---|---|
+| Consolidar los 85 CSV con un esquema y linaje, en orden estable | `queries.parquet` |
+| Marcar 2 usuarios anómalos (≥ 2 de 6 señales) | `usuarios_anomalos.parquet` |
+| Delimitar el área: componente H3 contigua de 919 celdas + 1 km | `area_estudio.geojson` |
+| Filtrar consultas en orden y asignar la zona H3 res 8 del origen | `queries_limpias.parquet` |
+| Registrar semanas completas, parciales y faltantes | `semanas.parquet` |
+| Extraer la población Kontur 2023 de todo Bolivia | `kontur_2023_h3r8.parquet` |
+| Construir la tabla por zona con `query_count` | `celdas_objetivo.parquet` |
+
+**Criterios.**
+- El área depende solo de ubicaciones y no del filtro de distancia.
+- Las zonas pobladas sin consultas entran con 0, sin imputar.
+- El hueco temporal no se imputa. Se registra `W_obs`, las semanas
+  equivalentes observadas (días con datos / 7), y los conteos antes y después
+  del hueco para la sensibilidad temporal.
+
+**Resultados** ([métricas](resultados/02_preprocesamiento/metricas.json),
+[flujo](resultados/02_preprocesamiento/flujo_limpieza.csv)):
+- Quedan 1.924.578 consultas válidas (99,84 % de 1.927.675). La mayor
+  exclusión es "origen fuera del área": 2.509 consultas.
+- Tabla por zona: 1.628 zonas, 1.017 con consultas, 611 pobladas sin
+  consultas y 1.381 con al menos 10 habitantes. Suman 1.226.308 habitantes.
+- `W_obs` = 81,143 semanas. Antes del hueco hay 538 días con datos y después
+  solo 30: la sensibilidad antes/después del hueco tiene poco período posterior.
+
+**Verificaciones.**
+- El flujo cuadra con el total y `query_count` suma las consultas válidas.
+- No hay nulos, zonas duplicadas ni usuarios anómalos en los datos limpios.
+- Consultas válidas, área, zonas y usuarios anómalos coinciden con el EDA.
+- Dos ejecuciones producen archivos idénticos.
+
+**Qué habilita.** El feature engineering parte de `celdas_objetivo.parquet`,
+`kontur_2023_h3r8.parquet` y `area_estudio.geojson`.
 
 ## 6. Fase 3 · Feature engineering (diseño previsto)
 

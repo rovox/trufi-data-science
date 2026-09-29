@@ -81,8 +81,10 @@ reglas, comandos y criterios de calidad.
 - **El EDA no escribe en `data/`**: explora `data/raw/` en memoria. El
   preprocesamiento es el primer notebook que produce `data/interim/`; el
   feature engineering produce `data/processed/`.
-- Cada notebook imprime el tiempo por sección (`tiempo(...)`) para ubicar las
-  partes lentas.
+- Cada notebook imprime el tiempo por sección (`tiempo = cronometro()`) para
+  ubicar las partes lentas.
+- Un notebook que depende de otro verifica que sus cifras compartidas coinciden
+  con el `metricas.json` de la fase anterior (p. ej. consultas válidas, área).
 - Todo notebook sobrescribe; ninguno anexa texto a archivos existentes.
 - Orden de tablas y listas estable: re-ejecutar no debe cambiar ningún CSV. Si
   cambia, investigar antes de commitear. Solo cambian metadatos de notebooks y
@@ -144,7 +146,7 @@ trufi-data-science/
 ├── AGENTS.md            # reglas (este archivo)
 ├── EXPLANATIONS.md      # única narrativa
 ├── config.py            # parámetros, rutas y semillas (único lugar)
-├── trufi_ds/            # funciones reutilizables (eda, io, preparation, spatial, modeling, notebook_setup)
+├── trufi_ds/            # funciones reutilizables (eda, preprocesamiento, io, preparation, spatial, modeling, notebook_setup)
 ├── notebooks/           # 01_EDA · 02_preprocesamiento · 03_feature_engineering · modelado · evaluación · propuesta
 ├── data/{raw,interim,processed}/
 └── resultados/<fase>/   # 01_eda, 02_preprocesamiento, 03_feature_engineering, 04_modelado, 05_evaluacion, 06_propuesta
@@ -162,8 +164,8 @@ Antes de borrar cualquier archivo, verificar con `grep -rn` en `notebooks/`,
 | Notebook | Estado |
 |---|---|
 | `01_EDA` | Hecho: recorrido de `data/raw/`; los pasos que habilita están en `EXPLANATIONS.md` §5 |
-| `02_preprocesamiento` | Siguiente: construir `data/interim/` con los pasos del EDA |
-| `03_feature_engineering` | Pendiente: offset, coronas, centro, bloques, reserva de prueba → `data/processed/` |
+| `02_preprocesamiento` | Hecho: construye `data/interim/` y verifica sus cifras contra el EDA |
+| `03_feature_engineering` | Siguiente: offset, coronas, centro, bloques, reserva de prueba → `data/processed/` |
 | `02_preparacion_datos` (anterior) | Fuente para partir en 02 y 03; se elimina al terminar |
 | `03_modelado`, `04_evaluacion` (anteriores) | Se renumeran a 04 y 05 al rehacerse |
 | `05_despliegue` (anterior) | Pasa a `06_propuesta`; entregables en `resultados/06_propuesta/`; eliminar `outputs/` |
