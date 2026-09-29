@@ -1,0 +1,25 @@
+{
+  "bloques_modelo": 53,
+  "bloques_prueba": 12,
+  "columnas": 18,
+  "consultas_modelo": 1924336,
+  "cortes_anillo_km": [
+    12.52,
+    18.65,
+    22.92
+  ],
+  "fraccion_prueba": 0.2,
+  "municipios": 14,
+  "pct_consultas_prueba": 9.63,
+  "predictores": [
+    "dist_centro_km",
+    "pop_ring1"
+  ],
+  "semilla": 42,
+  "spearman_pop_ring1_pop_ring2": 0.954,
+  "zonas": 1628,
+  "zonas_cubiertas": 634,
+  "zonas_modelo": 1381,
+  "zonas_prueba": 352,
+  "zonas_prueba_borde": 125
+}
