@@ -36,8 +36,4 @@ dev = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Stage-2 utility scripts (user-facing CLIs with intentional broad exception handling)
-"src/generate_manifest.py" = ["BLE001", "DTZ005"]
-"src/gtfs_download.py" = ["BLE001"]
-"src/run_update_pipeline.py" = ["DTZ005", "PLW1510"]
 "src/trufi_ds/io.py" = ["DTZ005"]

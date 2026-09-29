@@ -1,9 +1,0 @@
-medida,valor
-area_etapa1_hull_gtfs_km2,1372.9
-area_etapa2_hull_origenes_km2,1181.4
-diferencia_km2,-191.4
-interseccion_km2,1095.9
-pct_etapa1_conservado,79.8
-consultas_coord_ok,1927663.0
-consultas_coord_ok_dentro_area_etapa2,1924094.0
-pct_consultas_dentro_area_etapa2,99.81

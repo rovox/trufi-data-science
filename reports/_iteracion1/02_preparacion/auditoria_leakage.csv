@@ -1,9 +1,0 @@
-id,riesgo,resultado,evidencia
-L1,Objetivo dentro de los predictores,OK,"predictores = ['dist_plaza_km', 'pop_ring1', 'pop_ring2']; objetivos = ['query_count', 'user_count']"
-L2,Predictores derivados de consultas de celdas vecinas,OK,pop_ring* salen de Kontur; dist_plaza_km de un punto exógeno. B1 usa vecinos solo dentro del pliegue (Fase 4).
-L3,Área definida con conteos de consultas,OK,Área = envolvente de orígenes de la componente de celdas ocupadas (ubicaciones); los conteos no intervienen (T1).
-L4,Escalado o transformación ajustada antes de partir,OK,La tabla guarda variables crudas; log1p es fila a fila (sin parámetros); cualquier escalado ocurre dentro del pliegue (R3).
-L5,Conjunto de prueba tocado antes de modelar,OK,test_blocks.csv se genera antes de cualquier modelo (modelado previo: False); idéntico a la versión en Git: False.
-L6,Variables GTFS como predictores,OK,"contraste = ['dist_stop_m', 'gtfs_covered', 'route_count_500m'] (D-017)."
-L7,Bloques compartidos entre entrenamiento y prueba,OK,"35 bloques de entrenamiento, 8 de prueba, 0 compartidos. Celdas de prueba con vecina de entrenamiento (k=1, borde de bloque): 96 de 247."
-L8,Imputación con información global,OK,Sin imputación: query_count/user_count = 0 y population = 0 son ausencias estructurales; 0 nulos en la tabla.

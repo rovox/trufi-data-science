@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import tempfile
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 
 import geopandas as gpd
@@ -113,6 +114,26 @@ def read_prep_queries(path: Path | None = None) -> pl.LazyFrame:
     """
     path = path or (DATA_PROCESSED / "prep_queries_clean.parquet")
     return pl.scan_parquet(path)
+
+
+ENCODING_ISSUES: list[str] = []
+
+
+def read_csv_safe(path: Path, **kwargs) -> pl.DataFrame:
+    """Read a CSV, falling back to Latin-1 decoding on UTF-8 failures.
+
+    Some raw files mix UTF-8 with Latin-1-encoded accented characters
+    (e.g. "Santivañez"). Latin-1 maps every byte 1:1 to a codepoint, so
+    re-decoding the whole file recovers the text. Files that needed the
+    fallback are appended to `ENCODING_ISSUES`.
+    """
+    try:
+        return pl.read_csv(path, **kwargs)
+    except Exception as e:
+        if "utf-8" not in str(e).lower() and "utf8" not in str(e).lower():
+            raise
+        ENCODING_ISSUES.append(path.name)
+        return pl.read_csv(StringIO(path.read_bytes().decode("latin-1")), **kwargs)
 
 
 def read_gtfs_shapes(gtfs_dir: Path) -> pl.DataFrame:

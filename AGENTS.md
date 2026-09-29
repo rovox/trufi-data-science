@@ -1,72 +1,164 @@
 # AGENTS.md
 
-Pipeline de ciencia de datos: estimación de la demanda esperada de consultas de
-rutas de **Trufi App — Cochabamba** por celda H3 (encuadre **predictivo**,
-CRISP-DM). Pregunta: *¿Cómo estimar el número esperado de consultas de ruta de
-Trufi App por celda H3 a partir de la población, la ubicación y el contexto
-territorial de cada celda, mediante técnicas geoespaciales de ciencia de datos?*
-**Estado: cerrado** tras dos iteraciones; resumen en `docs/INFORME_FINAL.md`. Redacción de la monografía: `docs/monografia/`. La iteración 1 está archivada en `reports/_iteracion1/` (etiqueta Git `iteracion-1`); no se modifica.
+Reglas operativas para el agente que mantiene este proyecto: estimación de las
+consultas esperadas de Trufi App por celda H3 res 8 en el eje metropolitano de
+Cochabamba (CRISP-DM). La narrativa vive en `EXPLANATIONS.md`; aquí solo van
+reglas, comandos y criterios de calidad.
 
-## Comandos
+## 1. Principios
 
-- Instalar deps: `uv sync` (Python ≥ 3.12; usar **siempre `uv`**, nunca pip).
+- **Una sola fuente de verdad narrativa:** `EXPLANATIONS.md`. No crear otros `.md`
+  (ni README, DECISIONES, MODEL_CARD, informes). Las reglas viven solo aquí.
+- **Una sola fuente de verdad numérica:** los archivos de resultados (CSV y
+  `metricas.json` por fase). Ninguna cifra entra en `EXPLANATIONS.md` si no está
+  en uno de ellos; al citarla se enlaza el archivo.
+- **Referenciar, no copiar.** Si una cifra, tabla o figura existe en un archivo
+  de resultados o en una celda, en `EXPLANATIONS.md` va solo el enlace.
+- **Tabla en vez de párrafos** para el estado.
+- **Regla de tamaño.** Si una sección de `EXPLANATIONS.md` supera ~40 líneas, se
+  recorta a objetivo, decisiones y referencias; el resto vive en el notebook o
+  en los resultados.
+- **Sin historial.** Se describe la versión vigente y se justifica. Nada de
+  changelog; el historial está en Git.
+
+## 2. Mantenimiento de `EXPLANATIONS.md`
+
+- Cada fase CRISP-DM cierra con: objetivo, qué se hizo, decisiones y por qué,
+  resultados (enlazados), verificaciones, limitaciones y qué habilita a la
+  siguiente fase.
+- Verificar contexto antes de escribir: la celda o archivo referenciado existe,
+  tiene el nombre esperado y hace lo que el texto dice.
+- Reescribir la sección afectada, no anexar.
+- Si una cifra no coincide con `00_verificacion_cifras.ipynb`, corregir
+  `EXPLANATIONS.md` o el resultado, nunca ambos a la vez.
+- `EXPLANATIONS.md` describe la **metodología objetivo**; lo que hoy está
+  implementado y difiere se declara en su sección "Implementación vigente" y en
+  "Siguientes pasos", no se mezcla.
+
+## 3. Criterios de calidad de notebooks
+
+### 3.1 Explicación
+- Celda Markdown inicial: objetivo, entradas, salidas y fase CRISP-DM.
+- Markdown breve antes de cada bloque de código: qué hace y por qué.
+- Comentarios en español, resumidos, dentro del código. Sin ensayos.
+
+### 3.2 Celdas
+- Una celda = una intención. Sin celdas largas ni espagueti (orientativo: ≤ 30
+  líneas; si crece, la lógica va a `src/trufi_ds/`).
+- Lógica reutilizable en `src/trufi_ds/`; el notebook la llama.
+- Parámetros, umbrales y semillas solo en `config.py`. El notebook los importa.
+
+### 3.3 Salidas
+- El notebook escribe tablas y figuras en su carpeta de resultados de fase.
+- El notebook **no genera `.md`, `.html` narrativo ni reportes**. Excepción: el
+  mapa interactivo de la propuesta, que es un entregable.
+- Un artefacto existe solo si alguna cifra o figura de `EXPLANATIONS.md` depende
+  de él, o si otro notebook lo lee como entrada.
+
+### 3.4 Cierre y verificación
+- Celda de asserts: filas antes/después, zonas sin población, ausencia de fuga,
+  coherencia de cifras.
+- Última celda: guarda las métricas de la fase en `metricas.json`.
+- `00_verificacion_cifras.ipynb` compara cada cifra de `EXPLANATIONS.md` contra
+  su archivo fuente. Es el control de coherencia.
+
+### 3.5 Reproducibilidad
+- Cada notebook puede borrar sus salidas y regenerarlas de punta a punta,
+  incluidos los Parquet de `data/interim/` y `data/processed/` de su fase.
+- Todo notebook sobrescribe; ninguno anexa texto a archivos existentes.
+- Orden de tablas y listas estable: re-ejecutar no debe cambiar ningún CSV. Si
+  cambia, investigar antes de commitear. Solo cambian metadatos de notebooks y
+  el HTML de folium (IDs aleatorios).
+- Sin estado global oculto entre celdas o notebooks.
+
+### 3.6 Sin tests
+- No se usa pytest. La verificación es: asserts en notebooks + `00_verificacion_cifras`.
+
+## 4. Reglas duras del protocolo predictivo
+
+- **Prueba de uso único.** `test_blocks.csv` se genera y se versiona antes de
+  cualquier modelo. Modelado solo lee la lista de bloques para descartarlos.
+  Evaluación usa la prueba **una vez**: si `resultados_prueba.csv` existe, no
+  reevalúa. No borrarlo sin declarar el motivo en `EXPLANATIONS.md`.
+- **Protocolo antes que resultados.** Cambios de técnica, variables, grilla o
+  regla de adopción se declaran y commitean **antes** de volver a modelar.
+- **GTFS fuera del modelo.** `dist_stop_m`, `gtfs_covered`, `route_count_500m`
+  son solo contraste.
+- **Sin fuga.** No crear variables derivadas de consultas de celdas vecinas. No
+  imputar. No escalar ni estimar tasas fuera del pliegue de entrenamiento.
+- **Área.** Envolvente de los orígenes válidos (componente H3 k=1) + 1 km, sin
+  condición de distancia. El filtro de distancia (`DIST_MAX_M`) solo decide qué
+  consultas cuentan. No usar `BBOX` ni el hull GTFS para definir el área.
+- **Validación.** `GroupKFold(5)` por `block_id` (H3 res 6); media ± DE;
+  brecha con predicciones fuera de pliegue; semilla 42.
+- **Nomenclatura.** Columnas en inglés, nombres completos, sufijo de unidad
+  (`h3_cell`, `query_count`, `population`, `dist_centro_km`, `dist_stop_m`).
+
+## 5. Comandos
+
+- Dependencias: `uv sync` (Python ≥ 3.12; siempre `uv`, nunca pip).
 - Lint: `uv run ruff check src`.
-- Tests: `uv run pytest` — no hay tests aún; pytest es dev-dep.
-- Pipeline completo (desde la raíz, en orden):
-  `for nb in 00_verificacion_cifras 01_comprension_datos 02_preparacion_datos 03_modelado 04_evaluacion 05_despliegue; do uv run jupyter nbconvert --to notebook --execute --inplace notebooks/$nb.ipynb; done`
-  (`00` y `01` son independientes; `02` requiere `data/interim/queries.parquet` de `01`.)
+- Pipeline completo, desde la raíz y en orden:
+  `for nb in notebooks/0*.ipynb; do uv run jupyter nbconvert --to notebook --execute --inplace "$nb"; done`
 
-| Notebook | Fase CRISP-DM | Salidas principales | Decisiones |
-|---|---|---|---|
-| `00_verificacion_cifras` | — | `reports/00_verificacion_cifras.csv` | — |
-| `01_comprension_datos` | Comprensión | `data/interim/queries.parquet`, `reports/01_data_understanding/` | `DECISIONES.md` D-001–D-022 |
-| `02_preparacion_datos` | Preparación | `data/processed/tabla_minable.parquet`, `test_blocks.csv`, `reports/02_preparacion/` | `reports/02_preparacion/DECISIONES_02_preparacion.md` D-101–D-110 |
-| `03_modelado` | Modelado | `reports/03_modelado/` (`cv_espacial.csv`, `decision_adopcion.md`, `adopcion.json`) | `reports/03_modelado/DECISIONES_03_modelado.md` D-201+ |
-| `04_evaluacion` | Evaluación | `reports/04_evaluacion/` (`resultados_prueba.csv`, `predicciones_cruzadas.parquet`, `criterio_exito.md`) | `reports/04_evaluacion/DECISIONES_04_evaluacion.md` D-301+ |
-| `05_despliegue` | Despliegue | `outputs/` (predicciones, `gap_map.html`, `priority_cells.csv`, `MODEL_CARD.md`) | `reports/05_despliegue/DECISIONES_05_despliegue.md` D-401+ |
+## 6. Gotchas de ejecución
 
-## Reglas duras del protocolo predictivo
+- Correr siempre desde la raíz. La celda de bootstrap busca `pyproject.toml`
+  hacia arriba y agrega `src/` a `sys.path`; no eliminarla.
+- Los notebooks importan con `from trufi_ds.notebook_setup import *` y guardan
+  figuras con `guardar_figura(...)`; no usan `plt.show()`.
+- `data/interim/queries.parquet` es un directorio Hive (`year=YYYY/week=WW`).
+- 6 CSV raw de 2024 son Latin-1 con columnas en inglés: leer con
+  `trufi_ds.io.read_csv_safe`. Mojibake en municipios: `trufi_ds.preparation.fix_mojibake`.
+- `data/` está fuera de Git; `data/raw/` es de solo lectura.
 
-- **Prueba**: `test_blocks.csv` se generó y se versionó (`reports/02_preparacion/test_blocks.csv`) antes de cualquier modelo. `03_modelado` solo lee la lista de bloques para descartarlos. `04_evaluacion` evalúa la prueba **una vez**: si `reports/04_evaluacion/resultados_prueba.csv` existe, no reevalúa. No lo borres sin declarar el motivo en `DECISIONES_04_evaluacion.md`.
-- **Protocolo antes que resultados**: cualquier cambio de técnica, variables, grilla o regla de adopción entra como decisión nueva, fechada y commiteada **antes** de volver a correr `03_modelado`.
-- **GTFS fuera del modelo** (D-017): `dist_stop_m`, `gtfs_covered` y `route_count_500m` son solo contraste (E5). Predictores: `dist_centro_km` (distancia al centroide del área, D-022), `log1p(pop_ring1)`, `log1p(pop_ring2)`; offset `log(population)`. Catálogo: líneas base B0, B0.5, B0.7, B1 y modelos M1–M3; adoptada B1.
-- **No** crear variables derivadas de las consultas de celdas vecinas. No imputar. No escalar fuera del pliegue.
-- **Área** (D-018, D-021): envolvente de los orígenes con coordenadas correctas (componente H3 k=1) + 1 km, **sin** condición de distancia. El filtro de distancia (`config.DIST_MAX_M = 50_000`, D-020) solo decide qué consultas cuentan. No usar `BBOX` ni el hull GTFS para definir el área.
-- Validación: `GroupKFold(5)` por `block_id` (H3 res 6); reportar media ± DE; brecha con predicciones fuera de pliegue; semilla 42.
-- Nomenclatura (D-019/D-022): columnas en inglés, nombres completos, sufijo de unidad (`h3_cell`, `query_count`, `population`, `dist_centro_km`, `dist_stop_m`, `municipality`, …). La Etapa 1 conserva sus nombres originales.
+## 7. Estructura objetivo
 
-## Re-ejecución (idempotencia)
+```
+trufi-data-science/
+├── AGENTS.md            # reglas (este archivo)
+├── EXPLANATIONS.md      # única narrativa
+├── config.py            # parámetros y semillas (único lugar)
+├── notebooks/           # 00 verificación, 01 negocio … 06 propuesta
+├── src/trufi_ds/        # funciones reutilizables
+├── data/{raw,external,interim,processed}/
+└── resultados/{01_negocio,02_datos,03_preparacion,04_modelado,05_evaluacion,06_propuesta}/
+```
 
-- Todos los notebooks sobrescriben sus salidas; ninguno agrega texto a archivos existentes. `01` ya no escribe en `DECISIONES.md` (solo verifica) y ordena sus tablas de forma estable.
-- Tras re-ejecutar, solo cambian los metadatos de los notebooks y `outputs/gap_map.html` (IDs aleatorios de folium). Si cambia un CSV, investigar antes de commitear.
-- Las fuentes de los notebooks se editan en los propios `.ipynb` (o extrayendo/reconstruyendo celdas); no hay `.py` espejo en el repo.
+`resultados/NN_fase/` reemplaza a `reports/` y `outputs/`: tablas, figuras,
+`metricas.json` y, en `06_propuesta/`, los entregables (predicciones, mapa,
+zonas prioritarias).
 
-## Gotchas de ejecución
+## 8. Limpieza
 
-- Todos los notebooks resuelven paths relativos a la raíz del repo → **correr desde ahí**. Los notebooks usan una celda de bootstrap que busca `pyproject.toml` hacia arriba desde el cwd para ubicar la raíz — no la elimines.
-- `from utils import ...` y `from trufi_ds...` funcionan porque la celda de bootstrap hace `sys.path.insert(0, str(SRC_DIR))`. No muevas `utils.py` ni `trufi_ds/` sin preservar eso.
-- `data/interim/queries.parquet` es un directorio Hive-partitioned (`year=YYYY/week=WW`); `pl.read_parquet` sobre el dir funciona.
-- Los notebooks nuevos importan con `from trufi_ds.notebook_setup import *` y guardan figuras con `guardar_figura(fig, nombre, subcarpeta)`; no usan `plt.show()`.
+Antes de borrar cualquier archivo, verificar con `grep -rn` en `notebooks/`,
+`src/` y `pyproject.toml` que nada lo lea o importe.
 
-## Datos y versionado
+### 8.1 Fase A — hecha
+- Narrativa duplicada absorbida en `EXPLANATIONS.md` y borrada: `DECISIONES*`,
+  `README*`, `MODEL_CARD`, `criterio_exito`, `decision_adopcion`, `docs/`,
+  `reports/_iteracion1/`. Los notebooks ya no escriben `.md`.
+- Código viejo: `src/utils.py` (→ `trufi_ds.io`), `run_update_pipeline.py`,
+  `generate_manifest.py`, `gtfs_download.py`, `trufi_ds/stages/`, `__pycache__/`.
+- Datos: `data/_archive/`, `data/processed/test_blocks.csv` (queda la copia
+  versionada), `data/interim/poblacion_kontur_2023_h3r8.parquet` (subconjunto
+  sin lectores). `kontur_2023_h3r8.parquet` **no** es duplicado: es el Kontur
+  nacional que lee la evaluación.
 
-- `data/` se mantiene fuera de Git y debe existir localmente; tras clonar, materializa los datos desde el almacenamiento externo documentado. Se versionan código, notebooks ejecutados, `reports/` y `outputs/`.
-- No commitear parquets intermedios redundantes ni acumular versiones regenerables. `tabla_minable.parquet` se escribe una sola vez por ejecución, con verificación de *round-trip*.
+### 8.2 Fase B — pendiente
+- Renumerar notebooks a 00–06 y crear `01_comprension_negocio`.
+- Mover `src/trufi_ds/config.py` a `config.py` en la raíz; podar constantes sin uso.
+- Migrar `reports/` y `outputs/` a `resultados/NN_fase/`; entradas entre
+  notebooks (`usuarios_anomalos.csv`, `area_estudio*.geojson`, `test_blocks.csv`)
+  se leen desde ahí.
+- Podar `reports/01_data_understanding/` (~50 archivos): queda solo lo que
+  `EXPLANATIONS.md` cita o que otro notebook lee.
+- `metricas.json` por fase y `00_verificacion_cifras` leyendo de ellos.
+- Partir celdas largas (> 30 líneas) hacia `trufi_ds`.
+- Revisar `trufi_ds/io.py` y `spatial.py` (heredados): conservar solo lo usado.
 
-## Gotcha de codificación
-
-- 6 CSVs raw (2024-04-29 → 2024-06-09) son Latin-1 con columnas en inglés. Reutilizar `utils.read_csv_safe`; no reimplementar lectura de raw. `origin_municipio` puede traer mojibake (`ChimorÃ©`): usar `trufi_ds.preparation.fix_mojibake` si se reporta por municipio.
-
-## Paquete trufi_ds (`src/trufi_ds/`)
-
-- `config.py` — Paths y parámetros (Plaza 14 de Septiembre, UTM 19S, rutas de Kontur y GTFS). `BBOX` es histórico: no define el área.
-- `notebook_setup.py` — Imports compartidos y `crear_directorios` / `guardar_figura`.
-- `preparation.py` — Etapa 2: área (componente principal + hull), `area_center`, Kontur, `clean_queries`, `build_mining_table`, coronas de población, `add_municipality`, `add_distance_rings`, contraste GTFS, Gini. Lo usan `02` y la sensibilidad de `04`.
-- `modeling.py` — Catálogo B0/B0.5/B0.7/B1/M1/M2/M3 con interfaz `fit(train) → predict(frame)`, métricas, `cross_validate`, `adoption_rule`.
-- `spatial.py`, `io.py` — utilidades heredadas de la etapa anterior.
-
-## Convenciones de git
-
-- Rama de trabajo: `refactor/crisp-dm-restart`; `main` = estable. Commits con prefijo semántico (`feat`/`fix`/`data`/`docs`/`chore`).
-- No editar `data/raw/` (solo lectura).
-- `DECISIONES_ARCHIVO_2026-09.md` es histórico (encuadre explicativo anterior); no se actualiza. `docs/ROADMAP.md`/`README.md` describen etapas antiguas (Random Forest/FastAPI) que no existen en esta rama.
+### 8.3 Regla de cierre
+Un archivo existe solo si es: un notebook 00–06; `config.py`, `AGENTS.md` o
+`EXPLANATIONS.md`; código de `src/trufi_ds/` que algún notebook usa;
+`pyproject.toml`/`uv.lock`; un dato en `data/`; o un artefacto en `resultados/`
+que `EXPLANATIONS.md` cita o que otro notebook lee.
