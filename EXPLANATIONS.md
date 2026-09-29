@@ -15,9 +15,9 @@ esperadas sirve para priorizar dónde revisar o mapear rutas, no para pronostica
 demanda futura. El proyecto sigue CRISP-DM hasta la evaluación; la
 implementación queda como propuesta.
 
-**Estado.** La comprensión de datos está cerrada y construye la variable
-objetivo. Preparación, modelado, evaluación y propuesta se rehacen a
-continuación sobre esa base; hasta entonces sus notebooks no se ejecutan.
+**Estado.** El EDA está cerrado. El preprocesamiento y el feature engineering
+son los siguientes pasos; el modelado, la evaluación y la propuesta vienen
+después, sobre esa base.
 
 ---
 
@@ -32,7 +32,7 @@ condicional a población y contexto. Es transversal, no temporal: se estima un
 valor esperado por zona, no un pronóstico, y por eso la validación es espacial.
 
 **Unidad.** Zona = celda H3 res 8 (área media 0,737 km², arista media 0,531 km).
-Macrozona = celda H3 res 6 (área media 36,13 km²), usada como bloque de
+Macrozona = celda H3 res 6 (área media 36,129 km²), usada como bloque de
 validación.
 
 **Fuera de alcance.** Pronóstico temporal, despliegue operativo en Trufi,
@@ -42,102 +42,131 @@ validación en campo de las zonas priorizadas y contraste con fuentes censales.
 
 ## 3. Flujo CRISP-DM
 
-| Fase | Notebook | Resultados | Estado |
+| Fase CRISP-DM | Notebook | Resultados | Estado |
 |---|---|---|---|
-| Comprensión de datos | `01_comprension_datos.ipynb` | `resultados/01_datos/` | Cerrada |
-| Preparación de datos | `02_preparacion_datos.ipynb` | `resultados/02_preparacion/` | Por rehacer |
-| Modelado | `03_modelado.ipynb` | `resultados/03_modelado/` | Por rehacer |
-| Evaluación | `04_evaluacion.ipynb` | `resultados/04_evaluacion/` | Por rehacer |
-| Propuesta de implementación | `05_propuesta.ipynb` | `resultados/05_propuesta/` | Por rehacer |
+| Comprensión de los datos | `01_EDA.ipynb` | `resultados/01_eda/` | Cerrado |
+| Preparación de los datos | `02_preprocesamiento.ipynb` | `resultados/02_preprocesamiento/`, `data/interim/` | Siguiente |
+| Preparación de los datos | `03_feature_engineering.ipynb` | `resultados/03_feature_engineering/`, `data/processed/` | Pendiente |
+| Modelado | notebook de modelado | `resultados/04_modelado/` | Pendiente |
+| Evaluación | notebook de evaluación | `resultados/05_evaluacion/` | Pendiente |
+| Propuesta de implementación | notebook de propuesta | `resultados/06_propuesta/` | Pendiente |
 
-La comprensión del negocio no tiene notebook: su contenido es la §2. La fase de
-despliegue se reemplaza por una propuesta no ejecutada.
+- La comprensión del negocio no tiene notebook: su contenido es la §2.
+- El despliegue se reemplaza por una propuesta no ejecutada.
+- Solo el EDA está al día; los notebooks `02_preparacion_datos`, `03_modelado`,
+  `04_evaluacion` y `05_despliegue` son anteriores y no se ejecutan hasta
+  rehacerse en su fase.
 
 ---
 
-## 4. Fase 1 · Comprensión de datos
+## 4. Fase 1 · EDA
 
-**Objetivo.** Conocer las fuentes, medir su calidad, construir la variable
-objetivo `query_count` (consultas con origen en cada zona) y explorar su
-distribución, relaciones, cobertura temporal y autocorrelación espacial.
+**Objetivo.** Recorrer todo `data/raw/` (consultas, GTFS y Kontur 2023), medir
+estructura y calidad, explorar la variable objetivo candidata y sus relaciones,
+y fijar qué debe hacer el preprocesamiento. El notebook no escribe en `data/`.
 
-**Qué se hizo.** Se consolidaron 85 CSV semanales (2 esquemas, 6 en Latin-1),
-del 2022-09-12 al 2024-06-09, con dos ediciones de Kontur y el feed GTFS
-([inventario](resultados/01_datos/inventario_fuentes.csv)). Se midió la calidad,
-se delimitó el área a partir de los propios orígenes, se construyó la tabla por
-zona y se analizó.
+**Qué se hizo.**
+- **Fuentes:** 85 CSV semanales (2 esquemas, 6 en Latin-1) del 2022-09-12 al
+  2024-06-09, las 11 tablas del feed GTFS y Kontur 2023
+  ([inventario](resultados/01_eda/inventario_fuentes.csv)).
+- **Análisis:** calidad, tiempo, espacio, red GTFS y población; luego
+  `query_count` por zona, calculado en memoria.
 
-| Criterio de desarrollo | Por qué |
+| Criterio | Por qué |
 |---|---|
-| Área = envolvente de la componente H3 contigua (k=1) de los orígenes válidos + 1 km | Depende solo de ubicaciones; sin la componente, unos pocos orígenes en otras ciudades estiran el área a 485.940 km² ([variantes](resultados/01_datos/area_variantes.csv)) |
-| La distancia filtra consultas (≤ 50 km), no dibuja el área | P99,9 = 40,7 km; 50 km conserva los viajes largos del valle alto a la ciudad ([distancia](resultados/01_datos/distancia.csv)) |
-| Usuario anómalo con ≥ 2 de 6 señales | Una sola señal (p. ej. consultas rápidas) marca a 10.511 usuarios legítimos ([señales](resultados/01_datos/usuarios_senales.csv)) |
-| Zonas pobladas sin consultas entran con 0; sin imputar | El cero es información: 611 zonas pobladas no registran consultas |
-| El hueco temporal no se imputa | Se documenta y se deja a la preparación la normalización por semana |
+| Región = envolvente de la componente H3 contigua (k=1) de los orígenes válidos + 1 km | Depende solo de ubicaciones; sin la componente, orígenes aislados en otras ciudades la llevan a 485.940,1 km² ([variantes](resultados/01_eda/area_variantes.csv)) |
+| Distancia ≤ 50 km filtra consultas, no dibuja la región | P99,9 = 40,7 km; 50 km conserva los viajes largos del valle alto a la ciudad ([distancia](resultados/01_eda/distancia.csv)) |
+| Usuario anómalo con ≥ 2 de 6 señales | Una sola señal (consultas rápidas) marca a 10.511 usuarios legítimos ([señales](resultados/01_eda/usuarios_senales.csv)) |
+| Zonas pobladas sin consultas cuentan con 0; no se imputa | El cero es información |
+| El hueco temporal no se imputa | Se documenta; la normalización es del preprocesamiento |
 
 **Resultados** (`metricas.json`):
-- **Calidad alta:** 1.924.578 consultas válidas (99,84 % de 1.927.675). El orden
-  de exclusión está en el [flujo de limpieza](resultados/01_datos/flujo_limpieza.csv).
-  Los nulos son estructurales: dos columnas existen solo en el lote de 2024
-  ([nulos](resultados/01_datos/nulos.csv)).
-- **Temporal:** 84 de 91 semanas con datos, 7 semanas sin datos (2024-03-11 a
-  2024-04-22) y 6 semanas parciales en los bordes. La media semanal pasa de
-  22.731 a 39.864 consultas tras el hueco: la adopción crece
-  ([serie](resultados/01_datos/cobertura_semanal.csv)).
-- **Área y objetivo:** el área mide 1.505,7 km² y contiene el 99,87 % de los
-  orígenes válidos. Tiene 1.628 zonas y 1.381 con al menos 10 habitantes; el
-  32,15 % de estas no tiene consultas.
-- **Concentración:** muy alta (Gini = 0,948; las 10 zonas más consultadas
-  reúnen el 42 %). Hay sobredispersión extrema: la varianza es 46.569 veces la
-  media ([resumen](resultados/01_datos/objetivo_resumen.csv)).
-- **Relaciones (Spearman):** con la población de la zona, 0,855; con la de su
-  primera corona, 0,836; con la distancia al trazado GTFS, −0,763; con la
-  distancia a la Plaza 14 de Septiembre, −0,697; con la distancia al centroide
-  del área, −0,476. El centroide queda a 7,82 km de la Plaza y no es el centro
-  de actividad ([relaciones](resultados/01_datos/relaciones.csv)).
-- **Espacial:** I de Moran de la tasa = 0,716 entre vecinas inmediatas. Baja
-  a 0,460 recién en el anillo 5 (≈ 4,6 km). LISA: 299 zonas HH en el centro y
-  239 LL en la periferia ([correlograma](resultados/01_datos/autocorrelacion.csv)).
+- **Calidad alta:** quedan 1.924.578 consultas válidas (99,84 % de 1.927.675)
+  ([flujo](resultados/01_eda/flujo_candidato.csv)). Los nulos son estructurales:
+  dos columnas existen solo en el lote de 2024
+  ([nulos](resultados/01_eda/nulos.csv)).
+- **Tiempo:** 84 de 91 semanas tienen datos. Hay 7 sin datos (2024-03-11 a
+  2024-04-22) y 6 parciales en los bordes. La media de las semanas completas
+  sube de 22.731 a 39.864 consultas tras el hueco. El pico es a las 14 h y el
+  fin de semana reúne el 22,8 %
+  ([semanal](resultados/01_eda/cobertura_semanal.csv),
+  [perfil](resultados/01_eda/perfil_temporal.csv)).
+- **GTFS:** 43 operadores, 141 líneas, 626 recorridos con un trazado cada uno
+  (mediana 20,22 km), 22.320 paradas y frecuencia mediana de 5 min. La
+  vigencia declarada empieza el 2024-01-01, después de gran parte de las
+  consultas. El 99,47 % de los orígenes está a ≤ 500 m del trazado
+  ([resumen](resultados/01_eda/gtfs_resumen.csv)).
+- **Región y población:** la región mide 1.505,7 km² y contiene el 99,87 % de
+  los orígenes válidos y 1.223.871 habitantes. Hay 609 zonas pobladas sin
+  ningún origen ([Kontur](resultados/01_eda/kontur_resumen.csv)).
+- **Variable objetivo:** 1.628 zonas, de las cuales 1.381 tienen al menos 10
+  habitantes; el 32,15 % de estas no tiene consultas. La concentración es
+  extrema (Gini = 0,948; las 10 primeras zonas suman el 42 %) y la varianza es
+  46.569 veces la media ([resumen](resultados/01_eda/objetivo_resumen.csv)).
+- **Relaciones (Spearman con `query_count`):**
+
+  | Variable | Spearman |
+  |---|---|
+  | Población de la zona | 0,855 |
+  | Población de la primera corona | 0,836 |
+  | Distancia al trazado | −0,763 |
+  | Distancia a la Plaza 14 de Septiembre | −0,697 |
+  | Distancia al centroide de la región | −0,476 |
+
+  El centroide queda a 7,82 km de la Plaza y no es el centro de actividad
+  ([relaciones](resultados/01_eda/relaciones.csv)).
+- **Espacio:** I de Moran de la tasa = 0,7161 entre vecinas (p = 0,002). Sigue
+  en 0,4603 en el anillo 5 (≈ 4,6 km). LISA encuentra 295 zonas HH en el centro
+  y 253 LL en la periferia
+  ([correlograma](resultados/01_eda/autocorrelacion.csv)).
 
 **Verificaciones.**
-- Cada paso de limpieza cuadra con el total.
-- `query_count` suma exactamente las consultas válidas.
-- Sin nulos ni usuarios anómalos en la tabla.
-- Dos ejecuciones seguidas producen archivos idénticos.
+- El flujo de filtros cuadra con el total.
+- `query_count` suma las consultas válidas.
+- No quedan usuarios anómalos.
+- Dos ejecuciones producen archivos idénticos.
 
-**Limitaciones.**
-- Kontur es una estimación modelada.
-- El feed GTFS tiene vigencia desde 2024-01-01, posterior a buena parte de las
-  consultas.
-- Las relaciones son asociaciones sobre todas las zonas, no efectos.
+**Limitaciones.** Kontur es una estimación modelada. El GTFS describe la red
+vigente desde 2024. Las relaciones son asociaciones sobre todas las zonas, no
+efectos.
 
-**Qué habilita.**
-- La preparación parte de `data/interim/celdas_objetivo.parquet` y
-  `queries_limpias.parquet`.
-- La autocorrelación, que persiste a varios km, obliga a validar por bloques
-  espaciales.
-- La sobredispersión y los ceros orientan hacia modelos de conteo con offset
-  poblacional.
-- La distancia al centroide rinde peor que la distancia a la Plaza, lo que
-  cuestiona qué centro usar.
+**Qué habilita.** Los [pasos del preprocesamiento](resultados/01_eda/pasos_preprocesamiento.csv),
+cada uno con su evidencia. La autocorrelación, que persiste a varios km, exige
+validar por bloques espaciales. La sobredispersión y los ceros orientan hacia
+modelos de conteo con offset poblacional. La elección del centro de referencia
+queda abierta.
 
 ---
 
-## 5. Fase 2 · Preparación de datos (diseño previsto)
+## 5. Fase 2 · Preprocesamiento (diseño previsto)
+
+Aplica los pasos que fijó el EDA y es el primer notebook que escribe en `data/`:
+
+1. Consolidar los CSV con un esquema y linaje (`data/interim/queries.parquet`).
+2. Quitar orígenes en (0,0) o fuera de Bolivia y las copias de duplicados
+   exactos.
+3. Delimitar el área con la regla de la componente H3 y guardarla.
+4. Quitar consultas de más de 50 km y de usuarios anómalos
+   (`queries_limpias.parquet`).
+5. Contar consultas por zona H3 res 8 y unir las zonas Kontur del área con 0
+   (`celdas_objetivo.parquet`).
+6. Registrar las semanas observadas y parciales para normalizar por semana
+   (`Y_i / W_obs`).
+
+## 6. Fase 3 · Feature engineering (diseño previsto)
 
 - **Exposición:** población Kontur 2023 como `log(P)` de offset. Las zonas con
   menos de 10 habitantes quedan fuera del modelado.
 - **Contexto:** población de las coronas H3 1 y 2 y distancia a un centro de
-  referencia. La cobertura (distancia mínima al trazado GTFS, umbral 500 m, en
-  EPSG:32719) es una adaptación propia del ODS 11.2.1; se usa solo para
-  contraste.
-- **Hueco temporal:** normalizar por semana observada (`Y_i / W_obs`), con
-  sensibilidad antes y después del hueco.
+  referencia, que se elige con la evidencia del EDA. La cobertura (distancia al
+  trazado GTFS, umbral 500 m, en EPSG:32719) es una adaptación propia del ODS
+  11.2.1; se usa solo para contraste.
 - **Validación:** bloques = macrozonas H3 res 6. La prueba reservada es el 20 %
   de los bloques, estratificada por anillo de distancia, sorteada con la
-  semilla de `config.py` antes de cualquier modelo y de uso único.
+  semilla de `config.py` antes de cualquier modelo y de uso único
+  (`data/processed/`).
 
-## 6. Fase 3 · Modelado (diseño previsto)
+## 7. Modelado (diseño previsto)
 
 Escalera de simple a complejo; cada peldaño debe ganarse su complejidad en la
 validación espacial:
@@ -158,19 +187,18 @@ validación espacial:
 - **Regla de selección, declarada antes:** la técnica más simple cuyo error no
   difiere del mínimo en más de un error estándar.
 
-## 7. Fase 4 · Evaluación (diseño previsto)
+## 8. Evaluación (diseño previsto)
 
 - **Prueba:** los bloques reservados se usan una sola vez.
-- **Brecha:** residuo de Pearson o razón observado/esperado contraída, no la
-  diferencia bruta. Se reporta también la brecha frente a la tasa global, para
-  no perder zonas grandes desatendidas.
+- **Brecha:** residuo de Pearson o razón observado/esperado contraída. Se
+  reporta también la brecha frente a la tasa global.
 - **Métricas:**
   - D² contra la media constante y contra la tasa global;
   - calibración global y por deciles;
   - Spearman y Jaccard del top-20 entre variantes;
   - δ de Cliff como magnitud, no como p-valor.
 
-## 8. Fase 5 · Propuesta de implementación (no ejecutada)
+## 9. Propuesta de implementación (no ejecutada)
 
 - **Ingesta versionada:** consultas, Kontur (edición) y GTFS (fecha), con hashes.
 - **Control de calidad automático:** semanas faltantes o parciales, coordenadas
@@ -178,24 +206,22 @@ validación espacial:
 - **Recálculo:** exposición, cobertura, técnica final, mapa y top-20.
 - **Monitoreo de deriva:** alertar si el Spearman del ranking frente a la
   edición anterior es < 0,8 o si la calibración sale de [0,9; 1,1].
-- **Registro:** qué zonas se revisaron y qué se encontró.
 - **Riesgos:** cambios en la adopción de la app, actualización del feed y
   cambios metodológicos en Kontur.
 
 ---
 
-## 9. Reproducibilidad
+## 10. Reproducibilidad
 
-- Python ≥ 3.12 con `uv`; versiones fijadas en `pyproject.toml` y `uv.lock`.
+- Python ≥ 3.12 con `uv`: `uv sync` deja `.venv` igual a `uv.lock`. El kernel
+  de los notebooks es el Python de `.venv`.
 - Parámetros y semilla en `config.py`; comandos en `AGENTS.md` §5.
-- Datos de entrada: `data/raw/*.csv` (consultas), `data/raw/gtfs/` y
-  `data/external/kontur_population_BO_*.gpkg.gz` (ediciones 2022-06-30 y
-  2023-11-01).
-- Cada notebook borra y regenera sus salidas. Con
-  `config.REGENERAR_CONSULTAS = False`, el notebook 01 reutiliza
-  `queries.parquet` para pruebas rápidas.
+- Todas las fuentes están en `data/raw/`: `*.csv` (consultas), `gtfs/` y
+  `kontur_population_BO_20231101.gpkg.gz`.
+- Cada notebook borra y regenera sus salidas. El EDA tarda unos 90 s e imprime
+  el tiempo de cada sección.
 
-## 10. Limitaciones generales
+## 11. Limitaciones generales
 
 - Kontur es una estimación modelada, no un conteo censal.
 - La cobertura se mide al trazado, no a la red vial ni a las paradas.
@@ -204,15 +230,16 @@ validación espacial:
   Trufi.
 - Pocos bloques de prueba implican varianza alta en las métricas.
 
-## 11. Glosario
+## 12. Glosario
 
 **Zona.** Celda H3 de resolución 8. No corresponde a zonas, distritos ni OTB municipales.
 
 **Macrozona.** Celda H3 de resolución 6; bloque de validación.
 
-**Consulta.** Búsqueda de ruta en Trufi App.
+**Consulta válida.** Consulta que supera los filtros del EDA y del preprocesamiento.
 
-**Consulta válida.** Consulta que supera los pasos de limpieza de la Fase 1.
+**Región / área de estudio.** Envolvente de la componente H3 contigua de los
+orígenes válidos más 1 km.
 
 **Brecha.** Diferencia entre consultas observadas y esperadas, expresada como
 residuo de Pearson o razón observado/esperado contraída.

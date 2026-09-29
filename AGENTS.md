@@ -70,9 +70,13 @@ reglas, comandos y criterios de calidad.
 
 ### 3.5 Reproducibilidad
 - Cada notebook empieza con `limpiar_salidas(fase, intermedios)`: borra
-  `resultados/<fase>/` y los Parquet de `data/interim/`/`data/processed/` que
-  regenera. `config.REGENERAR_CONSULTAS = False` reutiliza `queries.parquet`
-  para pruebas rápidas.
+  `resultados/<fase>/` y los datos de `data/interim/`/`data/processed/` que
+  regenera.
+- **El EDA no escribe en `data/`**: explora `data/raw/` en memoria. El
+  preprocesamiento es el primer notebook que produce `data/interim/`; el
+  feature engineering produce `data/processed/`.
+- Cada notebook imprime el tiempo por sección (`tiempo(...)`) para ubicar las
+  partes lentas.
 - Todo notebook sobrescribe; ninguno anexa texto a archivos existentes.
 - Orden de tablas y listas estable: re-ejecutar no debe cambiar ningún CSV. Si
   cambia, investigar antes de commitear. Solo cambian metadatos de notebooks y
@@ -103,12 +107,16 @@ reglas, comandos y criterios de calidad.
 
 ## 5. Comandos
 
-- Dependencias: `uv sync` (Python ≥ 3.12; siempre `uv`, nunca pip).
+- Dependencias: `uv sync` (Python ≥ 3.12; siempre `uv`, nunca pip). Deja `.venv`
+  exactamente igual a `uv.lock` (quita paquetes sobrantes). El kernel de los
+  notebooks es el Python de `.venv`; comprobar con `uv pip check`.
 - Lint: `uv run ruff check trufi_ds config.py`.
 - Pipeline completo, desde la raíz y en orden:
   `for nb in notebooks/0*.ipynb; do uv run jupyter nbconvert --to notebook --execute --inplace "$nb"; done`
 - Los notebooks se editan en el `.ipynb`; al terminar se ejecutan de punta a
   punta y se commitean con sus salidas.
+- **Commits:** uno resumido por cambio (prefijo `feat`/`fix`/`refactor`/`docs`/
+  `chore`), en la rama de trabajo, y luego `git push`.
 
 ## 6. Gotchas de ejecución
 
@@ -116,10 +124,10 @@ reglas, comandos y criterios de calidad.
   `sys.path` (para `import config` y `trufi_ds`); no eliminarla.
 - Los notebooks importan con `from trufi_ds.notebook_setup import *` y escriben
   con `guardar_tabla`, `guardar_figura` y `guardar_metricas`; no usan `plt.show()`.
-- `data/interim/queries.parquet` es un directorio Hive (`year=YYYY/week=WW`).
 - Algunos CSV raw son Latin-1 y el lote de 2024 trae columnas en inglés: leer con
   `trufi_ds.io.leer_consultas`. Mojibake en municipios: `trufi_ds.preparation.fix_mojibake`.
-- `data/` está fuera de Git; `data/raw/` es de solo lectura.
+- `data/` está fuera de Git. `data/raw/` es de solo lectura y contiene todas las
+  fuentes: consultas `*.csv`, `gtfs/` y Kontur 2023. `data/external/` no se usa.
 
 ## 7. Estructura
 
@@ -129,13 +137,13 @@ trufi-data-science/
 ├── EXPLANATIONS.md      # única narrativa
 ├── config.py            # parámetros, rutas y semillas (único lugar)
 ├── trufi_ds/            # funciones reutilizables (eda, io, preparation, spatial, modeling, notebook_setup)
-├── notebooks/           # 01 datos · 02 preparación · 03 modelado · 04 evaluación · 05 propuesta
-├── data/{raw,external,interim,processed}/
-└── resultados/{01_datos,02_preparacion,03_modelado,04_evaluacion,05_propuesta}/
+├── notebooks/           # 01_EDA · 02_preprocesamiento · 03_feature_engineering · modelado · evaluación · propuesta
+├── data/{raw,interim,processed}/
+└── resultados/<fase>/   # 01_eda, 02_preprocesamiento, 03_feature_engineering, 04_modelado, 05_evaluacion, 06_propuesta
 ```
 
 `resultados/<fase>/` guarda tablas, `figuras/` y `metricas.json`; en
-`05_propuesta/`, además, los entregables (predicciones, mapa, zonas prioritarias).
+`06_propuesta/`, además, los entregables (predicciones, mapa, zonas prioritarias).
 No existe notebook de negocio: el contexto del problema vive en `EXPLANATIONS.md`.
 
 ## 8. Limpieza y avance por fase
@@ -145,17 +153,18 @@ Antes de borrar cualquier archivo, verificar con `grep -rn` en `notebooks/`,
 
 | Notebook | Estado |
 |---|---|
-| `01_comprension_datos` | Rehecho: EDA completo, construye la variable objetivo |
-| `02_preparacion_datos` | Pendiente: leer de `data/interim/`, predictores, bloques, nueva reserva de prueba |
-| `03_modelado` | Pendiente |
-| `04_evaluacion` | Pendiente |
-| `05_despliegue` → `05_propuesta` | Pendiente: entregables en `resultados/05_propuesta/`; eliminar `outputs/` |
+| `01_EDA` | Hecho: recorrido de `data/raw/`; deja `pasos_preprocesamiento.csv` |
+| `02_preprocesamiento` | Siguiente: construir `data/interim/` con los pasos del EDA |
+| `03_feature_engineering` | Pendiente: offset, coronas, centro, bloques, reserva de prueba → `data/processed/` |
+| `02_preparacion_datos` (anterior) | Fuente para partir en 02 y 03; se elimina al terminar |
+| `03_modelado`, `04_evaluacion` (anteriores) | Se renumeran a 04 y 05 al rehacerse |
+| `05_despliegue` (anterior) | Pasa a `06_propuesta`; entregables en `resultados/06_propuesta/`; eliminar `outputs/` |
 
 Al rehacer cada notebook: celdas ≤ 30 líneas, parámetros a `config.py`, lógica a
 `trufi_ds/`, `limpiar_salidas` al inicio, `metricas.json` al final, y su sección
 de `EXPLANATIONS.md` reescrita con las cifras del `metricas.json`.
 
-Regla de cierre: un archivo existe solo si es un notebook 01–05; `config.py`,
+Regla de cierre: un archivo existe solo si es un notebook del flujo; `config.py`,
 `AGENTS.md` o `EXPLANATIONS.md`; código de `trufi_ds/` que algún notebook usa;
 `pyproject.toml`/`uv.lock`; un dato en `data/`; o un artefacto en `resultados/`
 que `EXPLANATIONS.md` cita o que otro notebook lee.
