@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import shutil
 from io import StringIO
 from pathlib import Path
 
 import polars as pl
-import pyarrow.parquet as pq
 
 # Nombres largos de las coordenadas (lote de 2024) → nombres cortos de consolidación
 RENOMBRE_COORDS = {
@@ -69,12 +67,3 @@ def leer_consultas(archivos: list[Path]) -> tuple[pl.DataFrame, pl.DataFrame]:
     consultas = consultas.with_columns(pl.col("ts").dt.iso_year().cast(pl.Int32).alias("year"),
                                        pl.col("ts").dt.week().cast(pl.Int32).alias("week"))
     return consultas, pl.DataFrame(registro)
-
-
-def escribir_hive(df: pl.DataFrame, ruta: Path, particiones: list[str]) -> int:
-    """Reescribe un Parquet particionado (borra el anterior para no duplicar filas)."""
-    if ruta.exists():
-        shutil.rmtree(ruta)
-    ruta.mkdir(parents=True)
-    pq.write_to_dataset(df.to_arrow(), root_path=str(ruta), partition_cols=particiones)
-    return pl.scan_parquet(ruta / "**" / "*.parquet").select(pl.len()).collect().item()

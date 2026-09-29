@@ -5,10 +5,12 @@ from __future__ import annotations
 import datetime as dt
 
 import numpy as np
+import pandas as pd
 import polars as pl
 from esda.moran import Moran, Moran_Local
 
 from trufi_ds.io import LINAJE
+from trufi_ds.preparation import to_utm
 from trufi_ds.spatial import pesos_h3
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -149,3 +151,54 @@ def lisa(valores: np.ndarray, celdas: list[str], perm: int, semilla: int, alfa: 
     tipo = {c: nombres[q] if p < alfa else "no_significativo"
             for c, q, p in zip(con_vecinas, loc.q, loc.p_sim, strict=True)}
     return [tipo.get(c, "sin_vecinas") for c in celdas]
+
+
+def perfil_temporal(df: pl.DataFrame) -> pl.DataFrame:
+    """% de consultas por hora del día y por día de la semana (1 = lunes), desde `ts`."""
+    base = df.filter(pl.col("ts").is_not_null())
+    partes = []
+    for dimension, expr in [("hora", pl.col("ts").dt.hour()), ("dia_semana", pl.col("ts").dt.weekday())]:
+        partes.append(base.group_by(expr.cast(pl.Int32).alias("valor")).len()
+                      .with_columns(pl.lit(dimension).alias("dimension"),
+                                    (pl.col("len") / pl.col("len").sum() * 100).round(3).alias("pct")))
+    return pl.concat(partes).rename({"len": "consultas"}).select("dimension", "valor", "consultas", "pct") \
+        .sort("dimension", "valor")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GTFS
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def leer_gtfs(gtfs_dir) -> dict[str, pd.DataFrame]:
+    """Todas las tablas `.txt` del feed como texto (sin inferir tipos)."""
+    return {p.stem: pd.read_csv(p, dtype=str) for p in sorted(gtfs_dir.glob("*.txt"))}
+
+
+def longitud_trazados_km(shapes: pd.DataFrame) -> pd.Series:
+    """Longitud de cada `shape_id` en km, medida en UTM 19S."""
+    s = shapes.astype({"shape_pt_lat": float, "shape_pt_lon": float, "shape_pt_sequence": int}) \
+        .sort_values(["shape_id", "shape_pt_sequence"])
+    x, y = to_utm(s["shape_pt_lat"].to_numpy(), s["shape_pt_lon"].to_numpy())
+    s = s.assign(x=x, y=y)
+    tramo = np.hypot(s.groupby("shape_id")["x"].diff(), s.groupby("shape_id")["y"].diff())
+    return (tramo.groupby(s["shape_id"]).sum() / 1000).sort_index()
+
+
+def resumen_gtfs(gtfs: dict[str, pd.DataFrame]) -> pl.DataFrame:
+    """Tamaño de cada tabla y medidas clave del feed (tipos de ruta, trazados, frecuencias)."""
+    filas = [{"medida": f"filas_{t}", "valor": float(len(df))} for t, df in gtfs.items()]
+    for tipo, n in gtfs["routes"]["route_type"].value_counts().sort_index().items():
+        filas.append({"medida": f"lineas_route_type_{tipo}", "valor": float(n)})
+    largo = longitud_trazados_km(gtfs["shapes"])
+    paradas_viaje = gtfs["stop_times"].groupby("trip_id").size()
+    filas += [
+        {"medida": "trazados", "valor": float(largo.size)},
+        {"medida": "trazado_mediana_km", "valor": round(float(largo.median()), 2)},
+        {"medida": "trazados_total_km", "valor": round(float(largo.sum()), 1)},
+        {"medida": "paradas_por_recorrido_mediana", "valor": float(paradas_viaje.median())},
+    ]
+    if "frequencies" in gtfs and "headway_secs" in gtfs["frequencies"]:
+        hw = gtfs["frequencies"]["headway_secs"].astype(float) / 60
+        filas.append({"medida": "frecuencia_mediana_min", "valor": round(float(hw.median()), 1)})
+    return pl.DataFrame(filas)

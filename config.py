@@ -12,31 +12,18 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 DATA_RAW = PROJECT_ROOT / "data" / "raw"
-DATA_EXTERNAL = PROJECT_ROOT / "data" / "external"
 DATA_INTERIM = PROJECT_ROOT / "data" / "interim"
 DATA_PROCESSED = PROJECT_ROOT / "data" / "processed"
 RESULTADOS = PROJECT_ROOT / "resultados"
 
+# Fuentes (todas en data/raw/)
 GTFS_DIR = DATA_RAW / "gtfs"
-KONTUR_2023_GPKG_GZ = DATA_EXTERNAL / "kontur_population_BO_20231101.gpkg.gz"
-KONTUR_2022_GPKG_GZ = DATA_EXTERNAL / "kontur_population_BO_20220630.gpkg.gz"
-
-# Salidas intermedias de 01_comprension_datos (entradas de la preparación)
-QUERIES_PARQUET = DATA_INTERIM / "queries.parquet"  # directorio Hive year=/week=
-QUERIES_LIMPIAS = DATA_INTERIM / "queries_limpias.parquet"
-USUARIOS_ANOMALOS = DATA_INTERIM / "usuarios_anomalos.parquet"
-AREA_ESTUDIO = DATA_INTERIM / "area_estudio.geojson"
-KONTUR_2023_H3R8 = DATA_INTERIM / "kontur_2023_h3r8.parquet"
-KONTUR_2022_H3R8 = DATA_INTERIM / "kontur_2022_h3r8.parquet"
-CELDAS_OBJETIVO = DATA_INTERIM / "celdas_objetivo.parquet"
+KONTUR_2023_GPKG_GZ = DATA_RAW / "kontur_population_BO_20231101.gpkg.gz"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EJECUCIÓN
 # ─────────────────────────────────────────────────────────────────────────────
 SEMILLA = 42
-# False reutiliza `queries.parquet` si existe (evita releer los 85 CSV en
-# pruebas rápidas); True reconstruye todo desde `data/raw/`.
-REGENERAR_CONSULTAS = True
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GEOGRAFÍA
@@ -48,7 +35,7 @@ BBOX_BOLIVIA = {"lat_min": -23.0, "lat_max": -9.0, "lon_min": -70.0, "lon_max": 
 PLAZA_14_SEPTIEMBRE = {"lat": -17.393583, "lon": -66.157014}  # centro histórico, referencia exploratoria
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CONSTRUCCIÓN DE LA VARIABLE OBJETIVO
+# CRITERIOS CANDIDATOS PARA LA VARIABLE OBJETIVO (los explora el EDA)
 # ─────────────────────────────────────────────────────────────────────────────
 DIST_MAX_M = 50_000  # distancia origen–destino máxima de una consulta válida
 BUFFER_AREA_M = 1_000  # margen de la envolvente de orígenes
@@ -70,4 +57,4 @@ MIN_SENALES = 2
 COBERTURA_M = 500  # distancia al trazado GTFS para considerar la zona cubierta
 MUESTREO_TRAZADO_M = 50  # separación de puntos al muestrear shapes.txt
 K_MAX_CORRELOGRAMA = 5  # órdenes de vecindad H3 del correlograma de Moran
-PERMUTACIONES = 999  # permutaciones de Moran y LISA
+PERMUTACIONES = 499  # permutaciones de Moran y LISA (p mínimo 0,002)

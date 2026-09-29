@@ -1,14 +1,11 @@
 medida,valor
-celdas_area,1628.0
+celdas_region,1628.0
 celdas_con_consultas,1017.0
-celdas_pobladas_sin_consultas,611.0
 celdas_poblacion_min,1381.0
 pct_ceros_poblacion_min,32.15
-consultas_en_celdas_poblacion_min,1924336.0
 media_query_count,1393.4
 varianza_sobre_media,46569.0
 gini_query_count,0.948
 pct_consultas_top10_celdas,42.0
 tasa_global_1000,1570.0
 tasa_mediana_1000,21.7
-poblacion_area,1226308.0

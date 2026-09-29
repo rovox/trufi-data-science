@@ -42,16 +42,15 @@ def _carpeta(fase: str) -> Path:
     return ruta
 
 
-def limpiar_salidas(fase: str, rutas_datos: list[Path]) -> None:
-    """Borra los resultados de la fase y los datos intermedios que ella regenera."""
+def limpiar_salidas(fase: str, rutas_datos: list[Path] | None = None) -> None:
+    """Borra los resultados de la fase y, si se indican, los datos que ella regenera."""
     shutil.rmtree(config.RESULTADOS / fase, ignore_errors=True)
-    for ruta in rutas_datos:
+    for ruta in rutas_datos or []:
         if ruta.is_dir():
             shutil.rmtree(ruta)
         else:
             ruta.unlink(missing_ok=True)
     (_carpeta(fase) / "figuras").mkdir(exist_ok=True)
-    config.DATA_INTERIM.mkdir(parents=True, exist_ok=True)
 
 
 def guardar_tabla(df: pl.DataFrame, nombre: str, fase: str) -> pl.DataFrame:
