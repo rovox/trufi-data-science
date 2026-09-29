@@ -87,3 +87,13 @@ def mapa_brecha(zonas: gpd.GeoDataFrame, prioritarias: list[str]) -> folium.Map:
     escala.add_to(m)
     folium.LayerControl().add_to(m)
     return m
+
+
+def brecha_de_tecnica(entreno: pd.DataFrame, prueba: pd.DataFrame, tecnica: str,
+                      objetivo: str = "query_count") -> pd.DataFrame:
+    """Brecha por zona de una variante (técnica u objetivo distinto), con el mismo esquema sin autopredicción."""
+    from src.modelos import esperado_por_zona
+
+    e = esperado_por_zona(entreno, prueba, tecnica, objetivo).merge(
+        pd.concat([entreno, prueba])[["h3_cell", objetivo]], on="h3_cell")
+    return pd.concat([e[["h3_cell"]], brecha(e[objetivo], e["esperado"])], axis=1)

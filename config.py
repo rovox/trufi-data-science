@@ -97,5 +97,9 @@ PLIEGUES_INTERNOS_GB = 3
 # EVALUACIÓN Y PROPUESTA
 # ─────────────────────────────────────────────────────────────────────────────
 TOP_K = 20  # zonas prioritarias para revisión en terreno
+# Regla de priorización: combina la brecha con la cobertura de la red mapeada. Se priorizan las TOP_K zonas
+# con la brecha de Pearson más negativa entre las que no tienen trazado GTFS a ≤ COBERTURA_M, porque el
+# esfuerzo voluntario es mapear rutas; las zonas cubiertas con brecha negativa se listan como "revisar".
+PRIORIDAD_SOLO_SIN_COBERTURA = True
 POP_MIN_SENSIBILIDAD = 50  # variante de sensibilidad del umbral de población
 CONTRACCION_RAZON = 1.0  # pseudoconteo de la razón observado/esperado contraída
