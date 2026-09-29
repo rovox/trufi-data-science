@@ -29,6 +29,9 @@ KONTUR_H3R8 = DATA_INTERIM / "kontur_2023_h3r8.parquet"
 SEMANAS = DATA_INTERIM / "semanas.parquet"
 CELDAS_OBJETIVO = DATA_INTERIM / "celdas_objetivo.parquet"
 
+# Salida de 03_feature_engineering (data/processed/), entrada del modelado
+TABLA_MODELADO = DATA_PROCESSED / "tabla_modelado.parquet"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # EJECUCIÓN
 # ─────────────────────────────────────────────────────────────────────────────
@@ -41,7 +44,10 @@ UTM_EPSG = 32719  # UTM 19S, métrica para Cochabamba
 H3_RES = 8  # zona: ~0,74 km²
 H3_RES_BLOQUE = 6  # macrozona / bloque de validación: ~36 km²
 BBOX_BOLIVIA = {"lat_min": -23.0, "lat_max": -9.0, "lon_min": -70.0, "lon_max": -56.0}
-PLAZA_14_SEPTIEMBRE = {"lat": -17.393583, "lon": -66.157014}  # centro histórico, referencia exploratoria
+PLAZA_14_SEPTIEMBRE = {"lat": -17.393583, "lon": -66.157014}  # centro histórico
+# Centro para `dist_centro_km` y los anillos: la Plaza es exógena (no sale de los datos) y en el EDA se
+# asocia más con las consultas que el centroide del área
+CENTRO_REFERENCIA = PLAZA_14_SEPTIEMBRE
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CRITERIOS CANDIDATOS PARA LA VARIABLE OBJETIVO (los explora el EDA)
@@ -67,3 +73,9 @@ COBERTURA_M = 500  # distancia al trazado GTFS para considerar la zona cubierta
 MUESTREO_TRAZADO_M = 50  # separación de puntos al muestrear shapes.txt
 K_MAX_CORRELOGRAMA = 5  # órdenes de vecindad H3 del correlograma de Moran
 PERMUTACIONES = 499  # permutaciones de Moran y LISA (p mínimo 0,002)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FEATURE ENGINEERING Y VALIDACIÓN
+# ─────────────────────────────────────────────────────────────────────────────
+FRACCION_PRUEBA = 0.20  # fracción de bloques H3 res 6 reservada como prueba, por anillo
+N_ANILLOS = 4  # anillos de distancia al centro (cuartiles de la distancia media del bloque)

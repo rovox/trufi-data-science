@@ -69,8 +69,14 @@ reglas, comandos y criterios de calidad.
   de él, o si otro notebook lo lee como entrada.
 
 ### 3.4 Cierre y verificación
-- Celda de asserts: filas antes/después, zonas sin población, ausencia de fuga,
-  coherencia de cifras.
+- Verificaciones divididas por tema (integridad, rangos, partición, fuga,
+  coherencia con la fase anterior): cada una en su subsección, con un Markdown
+  que explica qué comprueba y una celda corta de `assert` que imprime un resumen.
+- **Sin listas de tuplas** `(nombre, condición, detalle)` para armar tablas de
+  verificación, auditoría o pasos: se escriben como asserts separados y su
+  explicación va en Markdown.
+- En el Markdown de un notebook no se escriben cifras de otras fases: se leen
+  de su `metricas.json` y se imprimen.
 - Última celda: `guardar_metricas(fase, M)` escribe `metricas.json` (claves
   ordenadas, sin fechas). Es el control de coherencia de `EXPLANATIONS.md`.
 
@@ -101,17 +107,18 @@ reglas, comandos y criterios de calidad.
   lista de bloques para descartarlos. Evaluación usa la prueba **una vez**.
 - **Protocolo antes que resultados.** Cambios de técnica, variables, grilla o
   regla de adopción se declaran y commitean **antes** de volver a modelar.
-- **GTFS fuera del modelo.** `dist_stop_m`, `gtfs_covered`, `route_count_500m`
-  son solo contraste.
+- **GTFS fuera del modelo.** `dist_trazado_m` y `gtfs_covered` son solo
+  contraste (`preparation.CONTRAST`).
 - **Sin fuga.** No crear variables derivadas de consultas de celdas vecinas. No
   imputar. No escalar ni estimar tasas fuera del pliegue de entrenamiento.
 - **Área.** Envolvente de los orígenes válidos (componente H3 k=1) + 1 km, sin
   condición de distancia. El filtro de distancia (`DIST_MAX_M`) solo decide qué
   consultas cuentan. No usar `BBOX` ni el hull GTFS para definir el área.
 - **Validación.** `GroupKFold(5)` por `block_id` (H3 res 6); media ± DE;
-  brecha con predicciones fuera de pliegue; semilla 42.
+  brecha con predicciones fuera de pliegue; semilla 42. Los anillos y
+  `dist_centro_km` usan un centro exógeno (`config.CENTRO_REFERENCIA`).
 - **Nomenclatura.** Columnas en inglés, nombres completos, sufijo de unidad
-  (`h3_cell`, `query_count`, `population`, `dist_centro_km`, `dist_stop_m`).
+  (`h3_cell`, `query_count`, `population`, `dist_centro_km`, `dist_trazado_m`).
 
 ## 5. Comandos
 
@@ -146,7 +153,7 @@ trufi-data-science/
 ├── AGENTS.md            # reglas (este archivo)
 ├── EXPLANATIONS.md      # única narrativa
 ├── config.py            # parámetros, rutas y semillas (único lugar)
-├── trufi_ds/            # funciones reutilizables (eda, preprocesamiento, io, preparation, spatial, modeling, notebook_setup)
+├── trufi_ds/            # funciones reutilizables (eda, preprocesamiento, features, io, preparation, spatial, modeling, notebook_setup)
 ├── notebooks/           # 01_EDA · 02_preprocesamiento · 03_feature_engineering · modelado · evaluación · propuesta
 ├── data/{raw,interim,processed}/
 └── resultados/<fase>/   # 01_eda, 02_preprocesamiento, 03_feature_engineering, 04_modelado, 05_evaluacion, 06_propuesta
@@ -165,9 +172,9 @@ Antes de borrar cualquier archivo, verificar con `grep -rn` en `notebooks/`,
 |---|---|
 | `01_EDA` | Hecho: recorrido de `data/raw/`; los pasos que habilita están en `EXPLANATIONS.md` §5 |
 | `02_preprocesamiento` | Hecho: construye `data/interim/` y verifica sus cifras contra el EDA |
-| `03_feature_engineering` | Siguiente: offset, coronas, centro, bloques, reserva de prueba → `data/processed/` |
-| `02_preparacion_datos` (anterior) | Fuente para partir en 02 y 03; se elimina al terminar |
-| `03_modelado`, `04_evaluacion` (anteriores) | Se renumeran a 04 y 05 al rehacerse |
+| `03_feature_engineering` | Hecho: variables, anillos, reserva de prueba → `data/processed/tabla_modelado.parquet` |
+| `03_modelado` (anterior) | Siguiente: pasa a `04_modelado`, lee `tabla_modelado.parquet` y `test_blocks.csv` |
+| `04_evaluacion` (anterior) | Pasa a `05_evaluacion` |
 | `05_despliegue` (anterior) | Pasa a `06_propuesta`; entregables en `resultados/06_propuesta/`; eliminar `outputs/` |
 
 Al rehacer cada notebook: celdas ≤ 30 líneas, parámetros a `config.py`, lógica a

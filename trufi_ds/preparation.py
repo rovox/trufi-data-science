@@ -38,7 +38,7 @@ RENAME_QUERIES = {
 }
 
 PREDICTORS = ["dist_centro_km", "pop_ring1", "pop_ring2"]
-CONTRAST = ["dist_stop_m", "gtfs_covered", "route_count_500m"]
+CONTRAST = ["dist_trazado_m", "gtfs_covered"]  # solo contraste, nunca predictores
 TARGETS = ["query_count", "user_count"]
 
 

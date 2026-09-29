@@ -1,0 +1,23 @@
+{
+  "bloques_modelo": 53,
+  "bloques_prueba": 12,
+  "centroide_a_centro_km": 7.82,
+  "cobertura_m": 500,
+  "columnas": 22,
+  "consultas_modelo": 1924336,
+  "cortes_anillo_km": [
+    12.52,
+    18.65,
+    22.92
+  ],
+  "fraccion_prueba": 0.2,
+  "municipios": 14,
+  "pct_consultas_prueba": 9.63,
+  "pop_min": 10,
+  "semilla": 42,
+  "spearman_max_entre_predictores": 0.954,
+  "zonas": 1628,
+  "zonas_cubiertas": 634,
+  "zonas_modelo": 1381,
+  "zonas_prueba_con_vecina_entreno": 125
+}

@@ -15,9 +15,9 @@ esperadas sirve para priorizar dónde revisar o mapear rutas, no para pronostica
 demanda futura. El proyecto sigue CRISP-DM hasta la evaluación; la
 implementación queda como propuesta.
 
-**Estado.** El EDA y el preprocesamiento están cerrados. El feature engineering
-es el siguiente paso; el modelado, la evaluación y la propuesta vienen después,
-sobre esa base.
+**Estado.** La comprensión y la preparación de los datos están cerradas (EDA,
+preprocesamiento y feature engineering). El modelado es el siguiente paso; la
+evaluación y la propuesta vienen después.
 
 ---
 
@@ -46,16 +46,15 @@ validación en campo de las zonas priorizadas y contraste con fuentes censales.
 |---|---|---|---|
 | Comprensión de los datos | `01_EDA.ipynb` | `resultados/01_eda/` | Cerrado |
 | Preparación de los datos | `02_preprocesamiento.ipynb` | `resultados/02_preprocesamiento/`, `data/interim/` | Cerrado |
-| Preparación de los datos | `03_feature_engineering.ipynb` | `resultados/03_feature_engineering/`, `data/processed/` | Siguiente |
-| Modelado | notebook de modelado | `resultados/04_modelado/` | Pendiente |
+| Preparación de los datos | `03_feature_engineering.ipynb` | `resultados/03_feature_engineering/`, `data/processed/` | Cerrado |
+| Modelado | notebook de modelado | `resultados/04_modelado/` | Siguiente |
 | Evaluación | notebook de evaluación | `resultados/05_evaluacion/` | Pendiente |
 | Propuesta de implementación | notebook de propuesta | `resultados/06_propuesta/` | Pendiente |
 
 - La comprensión del negocio no tiene notebook: su contenido es la §2.
 - El despliegue se reemplaza por una propuesta no ejecutada.
-- El EDA y el preprocesamiento están al día; los notebooks `02_preparacion_datos`, `03_modelado`,
-  `04_evaluacion` y `05_despliegue` son anteriores y no se ejecutan hasta
-  rehacerse en su fase.
+- Los notebooks `03_modelado`, `04_evaluacion` y `05_despliegue` son anteriores
+  y no se ejecutan hasta rehacerse en su fase.
 
 ---
 
@@ -181,18 +180,55 @@ notebook que escribe en `data/`.
 **Qué habilita.** El feature engineering parte de `celdas_objetivo.parquet`,
 `kontur_2023_h3r8.parquet` y `area_estudio.geojson`.
 
-## 6. Fase 3 · Feature engineering (diseño previsto)
+## 6. Fase 3 · Feature engineering
 
-- **Exposición:** población Kontur 2023 como `log(P)` de offset. Las zonas con
-  menos de 10 habitantes quedan fuera del modelado.
-- **Contexto:** población de las coronas H3 1 y 2 y distancia a un centro de
-  referencia, que se elige con la evidencia del EDA. La cobertura (distancia al
-  trazado GTFS, umbral 500 m, en EPSG:32719) es una adaptación propia del ODS
-  11.2.1; se usa solo para contraste.
-- **Validación:** bloques = macrozonas H3 res 6. La prueba reservada es el 20 %
-  de los bloques, estratificada por anillo de distancia, sorteada con la
-  semilla de `config.py` antes de cualquier modelo y de uso único
-  (`data/processed/`).
+**Objetivo.** Agregar a la tabla por zona las variables del modelado y
+preparar la validación espacial, sin usar información de la prueba.
+
+**Qué se hizo.**
+
+| Grupo | Variables | Uso |
+|---|---|---|
+| Objetivo y exposición | `query_count`; `population` | y; offset `log(population)` |
+| Predictores | `pop_ring1`, `pop_ring2` (población de las coronas H3 1 y 2), `dist_centro_km` | modelo |
+| Contraste | `dist_trazado_m`, `gtfs_covered` (≤ 500 m del trazado, EPSG:32719) | solo interpretación, nunca predictor |
+| Grupos | `municipality`, `distance_ring` (A1–A4) | líneas base por municipio y por anillo |
+| Validación | `block_id` (H3 res 6), `in_test` | pliegues espaciales y prueba reservada |
+
+**Criterios.**
+- **Centro de referencia: la Plaza 14 de Septiembre.** Es exógena y, en el EDA,
+  su distancia se asocia más con las consultas que la distancia al centroide
+  del área, que queda a 7,82 km de la Plaza.
+- **Zonas del modelo:** las que tienen al menos 10 habitantes. Con menos, la
+  tasa por habitante es inestable.
+- **Reserva de prueba:** el 20 % de los bloques de cada anillo, sorteado con
+  la semilla antes de cualquier modelo. Se reserva por bloques porque las zonas
+  vecinas se parecen.
+
+**Resultados** ([métricas](resultados/03_feature_engineering/metricas.json)):
+- 1.381 zonas en el modelo, que suman 1.924.336 consultas, en 53 bloques
+  ([grupos](resultados/03_feature_engineering/zonas_por_grupo.csv)).
+- **Anillos:** los cortes quedan a 12,52, 18,65 y 22,92 km de la Plaza.
+- **Prueba:** 12 bloques con el 9,63 % de las consultas, repartidos en los
+  cuatro anillos ([partición](resultados/03_feature_engineering/particion.csv),
+  [bloques](resultados/03_feature_engineering/test_blocks.csv)). 125 zonas de
+  prueba tocan zonas de entrenamiento en el borde de su bloque.
+- **Colinealidad:** entre predictores es alta: Spearman de 0,954 entre
+  `pop_ring1` y `pop_ring2`
+  ([correlaciones](resultados/03_feature_engineering/correlacion_predictores.csv)).
+
+**Verificaciones.**
+- La tabla conserva todas las consultas del preprocesamiento, sin nulos ni
+  duplicados.
+- Los rangos son válidos.
+- Entrenamiento y prueba no comparten bloques ni zonas.
+- No hay fuga: el objetivo y el GTFS no son predictores, y el sorteo solo usa
+  bloques y anillos.
+- Dos ejecuciones producen archivos idénticos.
+
+**Qué habilita.** El modelado lee `data/processed/tabla_modelado.parquet` y
+descarta los bloques de `test_blocks.csv`. Antes de modelar hay que declarar
+cómo tratar la colinealidad de las coronas: usar una sola o su suma.
 
 ## 7. Modelado (diseño previsto)
 
