@@ -1,0 +1,8 @@
+regla,filas_eliminadas,filas_despues,pct_conservado
+consultas crudas,0,1927675,100.0
+"origen (0,0)",3,1927672,100.0
+origen fuera de Bolivia,9,1927663,99.999
+copia de duplicado exacto,60,1927603,99.996
+origen fuera del área de estudio,2509,1925094,99.866
+distancia > 50 km,283,1924811,99.851
+usuario anómalo,233,1924578,99.839

@@ -1,0 +1,9 @@
+medida,km
+P50,3.39
+P90,10.26
+P99,19.69
+P99.9,40.7
+pct_mayor_20km,0.961
+pct_mayor_30km,0.353
+pct_mayor_40km,0.109
+pct_mayor_50km,0.04

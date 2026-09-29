@@ -1,5 +1,0 @@
-umbral_km,consultas_excluidas,pct_excluidas,consultas_finales,celdas_con_consultas,spearman_vs_50km
-20,16676,0.866,1908185,904,0.96317
-30,5610,0.291,1919251,975,0.98074
-40,1422,0.074,1923439,1012,0.99944
-50,283,0.015,1924578,1017,1.0

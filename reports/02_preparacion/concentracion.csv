@@ -1,4 +1,0 @@
-universo,celdas,gini_query_count,pct_celdas_cero,pct_consultas_top10_celdas
-celdas del modelo (incluye ceros),1381,0.9475,32.15,42.04
-todas las celdas de la tabla,1628,0.9553,37.53,42.04
-solo celdas con consultas,1017,0.9285,0.0,42.04

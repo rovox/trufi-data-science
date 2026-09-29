@@ -1,0 +1,5 @@
+regla,celdas,area_km2,pct_origenes_dentro
+todas las celdas,1516,485940.1,100.0
+componente k=1,919,1505.7,99.87
+componente k=2,1076,1965.4,99.933
+componente k=3,1195,3040.9,99.962

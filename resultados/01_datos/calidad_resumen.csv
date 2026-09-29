@@ -1,0 +1,6 @@
+problema,filas,pct
+"origen (0,0)",3,0.0
+origen fuera de Bolivia,9,0.0
+copia de duplicado exacto,60,0.003
+distancia > 50 km,778,0.04
+consulta de usuario anómalo,233,0.012

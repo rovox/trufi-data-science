@@ -1,0 +1,5 @@
+fuente,detalle,periodo,unidad
+consultas Trufi App,85 CSV semanales,2022-09-12 → 2024-06-09,consulta de ruta
+Kontur Population 2023-11-01,"145,929 celdas",estimación 2023,celda H3 res 8
+Kontur Population 2022-06-30,"178,201 celdas",estimación 2022,celda H3 res 8
+GTFS Trufi Cochabamba,"141 líneas, 22,320 paradas",20240101 → 20261231,trazado y parada

@@ -1,4 +1,0 @@
-grupo,celdas,consultas,poblacion
-in_model (population >= 10),1381,1924336,1225679
-1 <= population < 10,204,140,629
-population = 0 con consultas (polos),43,102,0

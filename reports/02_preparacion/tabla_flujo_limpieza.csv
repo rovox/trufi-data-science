@@ -1,8 +1,0 @@
-paso,regla,filas_antes,filas_eliminadas,filas_despues,pct_eliminadas_del_total,decision
-0,consultas crudas,1927675,0,1927675,0.0,—
-1,"origen (0,0)",1927675,3,1927672,0.0002,D-005
-2,origen fuera de Bolivia,1927672,9,1927663,0.0005,D-005
-3,copia de duplicado exacto,1927663,60,1927603,0.0031,D-013
-4,origen fuera del área de estudio,1927603,2509,1925094,0.1302,D-021
-5,distancia > 50 km,1925094,283,1924811,0.0147,D-020
-6,usuario anómalo,1924811,233,1924578,0.0121,D-008

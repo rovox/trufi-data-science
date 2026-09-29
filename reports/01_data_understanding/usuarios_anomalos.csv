@@ -1,3 +1,0 @@
-userID,n_consultas,dias_activos,n_celdas_distintas,tasa_diaria,max_consultas_dia,pct_pares_repetidos,intervalo_mediano_seg,s_volumen,s_intensidad,s_dispersion,s_rafaga,s_sin_rutina,s_rapido,n_seniales_activas,flag_anomalo
-634d8cba-2c48-4672-9fd6-76aa98a502bf,59,1,7,59.0,59,0.375,24.5,0,1,0,0,0,1,2,true
-703b4a7a-f753-4538-9ff7-5cb1f976b44d,174,23,9,7.565217391304348,124,0.4230769230769231,1.0,0,0,0,1,0,1,2,true
