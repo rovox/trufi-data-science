@@ -60,12 +60,16 @@ def guardar_tabla(df: pl.DataFrame, nombre: str, fase: str) -> pl.DataFrame:
 
 
 def guardar_figura(fig: plt.Figure, nombre: str, fase: str) -> Path:
-    """Guarda la figura en `resultados/<fase>/figuras/<nombre>.png` y la cierra."""
+    """Guarda la figura en `resultados/<fase>/figuras/<nombre>.png`.
+
+    No la cierra: el backend inline de Jupyter muestra y cierra automáticamente
+    las figuras que siguen abiertas al terminar la celda, así que se ve en el
+    notebook además de quedar guardada. No hace falta `plt.show()`.
+    """
     carpeta = _carpeta(fase) / "figuras"
     carpeta.mkdir(exist_ok=True)
     ruta = carpeta / f"{nombre}.png"
     fig.savefig(ruta, dpi=150, bbox_inches="tight", metadata={"Software": None})
-    plt.close(fig)
     return ruta
 
 

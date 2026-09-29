@@ -1,22 +1,22 @@
-columna,tipo,pct_nulos,descripcion
-date,String,0.0,fecha y hora de la consulta (texto original)
-lat_orig,Float64,0.0,latitud de origen
-lon_orig,Float64,0.0,longitud de origen
-lat_dest,Float64,0.0,latitud de destino
-lon_dest,Float64,0.0,longitud de destino
-userID,String,0.0,instalación de la app
-distancia,Float64,0.0,distancia origen–destino en metros
-origin_municipio,String,0.0,municipio de origen (geocodificación de Trufi)
-dest_municipio,String,0.0,municipio de destino
-hour,Int64,0.0,hora local
-day_of_week,Int64,0.0,día de la semana (0 = lunes)
-day_of_month,Int64,0.0,día del mes
-weekend,Int64,0.0,1 si es fin de semana
-source_file,String,0.0,CSV de origen
-source_batch,String,0.0,lote de exportación
-source_encoding,String,0.0,codificación del CSV
-year_week_number,String,91.608,semana del año (solo lote 2024)
-time_of_day,String,91.608,franja horaria (solo lote 2024)
-ts,"Datetime(time_unit='us', time_zone=None)",0.0,fecha y hora parseada
-year,Int32,0.0,año ISO (derivado de ts)
-week,Int32,0.0,semana ISO (derivada de ts)
+columna,tipo,pct_nulos
+date,String,0.0
+lat_orig,Float64,0.0
+lon_orig,Float64,0.0
+lat_dest,Float64,0.0
+lon_dest,Float64,0.0
+userID,String,0.0
+distancia,Float64,0.0
+origin_municipio,String,0.0
+dest_municipio,String,0.0
+hour,Int64,0.0
+day_of_week,Int64,0.0
+day_of_month,Int64,0.0
+weekend,Int64,0.0
+source_file,String,0.0
+source_batch,String,0.0
+source_encoding,String,0.0
+year_week_number,String,91.608
+time_of_day,String,91.608
+ts,"Datetime(time_unit='us', time_zone=None)",0.0
+year,Int32,0.0
+week,Int32,0.0

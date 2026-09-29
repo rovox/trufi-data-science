@@ -48,6 +48,12 @@ reglas, comandos y criterios de calidad.
 - Solo explicación técnica. Nada de IDs de decisión (D-xxx), iteraciones ni
   historial; la justificación de un criterio va como comentario breve y, si es
   importante, se desarrolla en `EXPLANATIONS.md`.
+- **Sin diccionarios ni listas de Python para texto descriptivo** (descripción
+  de columnas, pasos a seguir, hallazgos, glosarios). Esa documentación va en
+  una celda Markdown, en tabla o en viñetas — nunca como estructura de datos en
+  una celda de código.
+- Cada sección Markdown indica qué **tipo de datos** analiza (categóricos,
+  numéricos, temporales, espaciales, de red…) antes de su código.
 
 ### 3.2 Celdas
 - Una celda = una intención. Sin celdas largas ni espagueti (orientativo: ≤ 30
@@ -123,7 +129,9 @@ reglas, comandos y criterios de calidad.
 - La celda de bootstrap busca `pyproject.toml` hacia arriba y agrega la raíz a
   `sys.path` (para `import config` y `trufi_ds`); no eliminarla.
 - Los notebooks importan con `from trufi_ds.notebook_setup import *` y escriben
-  con `guardar_tabla`, `guardar_figura` y `guardar_metricas`; no usan `plt.show()`.
+  con `guardar_tabla`, `guardar_figura` y `guardar_metricas`. `guardar_figura`
+  no cierra la figura: el backend inline la muestra sola al final de la celda,
+  así que no hace falta `plt.show()` ni `plt.close()`.
 - Algunos CSV raw son Latin-1 y el lote de 2024 trae columnas en inglés: leer con
   `trufi_ds.io.leer_consultas`. Mojibake en municipios: `trufi_ds.preparation.fix_mojibake`.
 - `data/` está fuera de Git. `data/raw/` es de solo lectura y contiene todas las
@@ -153,7 +161,7 @@ Antes de borrar cualquier archivo, verificar con `grep -rn` en `notebooks/`,
 
 | Notebook | Estado |
 |---|---|
-| `01_EDA` | Hecho: recorrido de `data/raw/`; deja `pasos_preprocesamiento.csv` |
+| `01_EDA` | Hecho: recorrido de `data/raw/`; los pasos que habilita están en `EXPLANATIONS.md` §5 |
 | `02_preprocesamiento` | Siguiente: construir `data/interim/` con los pasos del EDA |
 | `03_feature_engineering` | Pendiente: offset, coronas, centro, bloques, reserva de prueba → `data/processed/` |
 | `02_preparacion_datos` (anterior) | Fuente para partir en 02 y 03; se elimina al terminar |

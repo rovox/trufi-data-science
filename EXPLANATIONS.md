@@ -130,8 +130,8 @@ y fijar qué debe hacer el preprocesamiento. El notebook no escribe en `data/`.
 vigente desde 2024. Las relaciones son asociaciones sobre todas las zonas, no
 efectos.
 
-**Qué habilita.** Los [pasos del preprocesamiento](resultados/01_eda/pasos_preprocesamiento.csv),
-cada uno con su evidencia. La autocorrelación, que persiste a varios km, exige
+**Qué habilita.** Los pasos que debe aplicar la Fase 2 (§5), cada uno respaldado
+por una cifra de esta fase. La autocorrelación, que persiste a varios km, exige
 validar por bloques espaciales. La sobredispersión y los ceros orientan hacia
 modelos de conteo con offset poblacional. La elección del centro de referencia
 queda abierta.
