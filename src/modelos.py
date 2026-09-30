@@ -278,3 +278,20 @@ def esperado_por_zona(entreno: pd.DataFrame, prueba: pd.DataFrame, tecnica: str,
     pr = pd.DataFrame({"h3_cell": prueba["h3_cell"].to_numpy(), "esperado": np.maximum(final.predict(prueba), EPS)})
     return pd.concat([oof[["h3_cell", "esperado"]].assign(particion="entrenamiento"),
                       pr.assign(particion="prueba")], ignore_index=True).sort_values("h3_cell", ignore_index=True)
+
+
+def ceros_esperados(modelo_m1: M1, modelo_m2: M2, frame: pd.DataFrame, objetivo: str = "query_count") -> pd.DataFrame:
+    """Ceros observados frente a ceros esperados por Poisson (M1) y NB2 (M2)."""
+    mu = modelo_m1.predict(frame)
+    # Poisson: P(0) = e^-μ
+    p0_m1 = np.exp(-mu)
+    # NB2: P(0) = (1 + α*μ)^(-1/α)
+    p0_m2 = (1 + modelo_m2.alfa_ * mu) ** (-1 / modelo_m2.alfa_)
+    obs_ceros = (frame[objetivo] == 0).astype(int)
+    return pd.DataFrame({
+        "h3_cell": frame["h3_cell"].to_numpy(),
+        "observados_ceros": obs_ceros,
+        "esperados_ceros_m1_poisson": (p0_m1 > 0.5).astype(int),
+        "prob_cero_m1": p0_m1.round(4),
+        "prob_cero_m2": p0_m2.round(4)
+    }).sort_values("h3_cell", ignore_index=True)

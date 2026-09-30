@@ -152,3 +152,15 @@ def resumen_por(tabla: pl.DataFrame, grupo: str) -> pl.DataFrame:
                           (pl.col("consultas") / pl.col("consultas").sum() * 100).round(2).alias("pct_consultas"),
                           (pl.col("consultas") / pl.col("poblacion") * 1000).round(1).alias("consultas_por_1000_hab"))
             .sort(grupo))
+
+
+def pureza_municipio(limpias: pl.DataFrame) -> pd.DataFrame:
+    """Por zona, % de consultas con la etiqueta de municipio modal y % de zonas con municipio mixto."""
+    por_zona_mun = (limpias.group_by(pl.col("h3_origin").alias("h3_cell"), pl.col("origin_municipio"))
+                    .agg(pl.len().alias("consultas")))
+    modal = por_zona_mun.sort("consultas", descending=True).group_by("h3_cell").first()
+    totales = por_zona_mun.group_by("h3_cell").agg(pl.col("consultas").sum().alias("total"))
+    return (modal.join(totales, on="h3_cell")
+            .with_columns((pl.col("consultas") / pl.col("total") * 100).round(1).alias("pct_modal"))
+            .select("h3_cell", "origin_municipio", "pct_modal")
+            .to_pandas())

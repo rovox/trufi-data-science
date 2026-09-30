@@ -179,6 +179,8 @@ objetivo y el GTFS no son predictores, y el sorteo solo usó bloques y anillos.
 - B3 logra un D² de 0,73 ± 0,14 y un Spearman de 0,799 entre pliegues, con calibración fuera de pliegue de 0,977.
 - **Sobredispersión fuerte.** El alfa de NB2 es 2,63. La dispersión de Pearson del Poisson está muy lejos de 1
   ([coeficientes](resultados/04_modelado/coeficientes.csv)).
+- **M3 (HistGradientBoosting).** Hiperparámetros fijos: 300 iteraciones máx., pérdida de Poisson, offset log(población). Búsqueda en grilla (8 combinaciones de profundidad, muestras mín. y tasa de aprendizaje) dentro de cada pliegue con validación interna de 3 pliegues. La parada temprana reserva el 10 % de zonas al azar (no por bloques) como validación. Con estos valores, no ganó la escalera.
+- Los ceros observados son la señal que se busca interpretar como brecha de demanda. Un modelo con exceso de ceros (ZINB) los explicaría con un proceso aparte e impediría medir la brecha. Por eso no se ejecutaron variantes infladas en ceros.
 - La varianza entre pliegues es alta: los pliegues que contienen el centro de la ciudad dominan la devianza.
 
 ## 9. Fase 5 · Evaluación (`05_evaluacion`)
@@ -246,10 +248,8 @@ documentada como decisión de la propuesta, no del modelo.
 **Implementación propuesta (no ejecutada).**
 - **Datos.** Exportaciones semanales, GTFS vigente y edición de Kontur en `data/raw/`.
 - **Infraestructura.** Un portátil con Python y `uv`; no se necesita un servidor.
-- **Procedimiento.** Actualizar los datos, ejecutar los seis notebooks y comparar `metricas.json` con la edición
-  anterior. Luego entregar la lista y el mapa, y registrar lo encontrado en cada visita para medir la precisión real.
-- **Monitoreo.** Alertar si el Spearman de la brecha frente a la edición anterior cae por debajo de 0,8 o si la
-  calibración sale de [0,9; 1,1].
+- - **Procedimiento.** Actualizar los datos en `data/raw/`, ejecutar los seis notebooks y comparar `metricas.json` con la edición anterior. Entregar `zonas_prioritarias.csv` y `mapa_brecha.html` a los coordinadores de mapeo. Registrar para cada zona visitada: (i) ruta existente no mapeada (añadir a GTFS), (ii) ruta mapeada correcta (validar), (iii) sin transporte (confirmar brecha). Calcular la precisión real como proporción de aciertos.
+- **Monitoreo.** Alertar si el Spearman de la brecha frente a la edición anterior cae por debajo de 0,8, si la calibración sale de [0,9; 1,1], o si aparecen semanas faltantes o parciales nuevas.
 
 ---
 
@@ -272,13 +272,15 @@ edición, contrastar B3 y M1 en terreno, porque sus listas difieren.
 ## 12. Limitaciones
 
 - Una consulta es una búsqueda en la aplicación, no un viaje: refleja a quienes usan Trufi.
-- Kontur es una estimación modelada, no un censo. Las consultas se originan también en polos de actividad con poca
-  población residente, lo que infla la tasa de sus vecinas en B3.
-- El GTFS declara vigencia desde 2024, después de gran parte de las consultas. La cobertura se mide al trazado y no a
-  las paradas, lo que sobreestima la accesibilidad.
+- Kontur 2023 es una estimación modelada, no un censo. Las consultas se originan también en polos de actividad con poca
+  población residente, lo que infla la tasa de sus vecinas en B3. No se ejecutaron variantes con Kontur 2022 (no disponible en `data/raw/`) ni resoluciones H3 distintas (res 9 imposible a partir de res 8; res 7 queda como trabajo futuro).
+- El GTFS declara vigencia desde 2024, después de gran parte de las consultas. La cobertura se mide al trazado, no a las paradas, lo que sobreestima la accesibilidad.
+- Los ceros observados son la señal que se interpreta como brecha: un modelo inflado en ceros habría explicado los ceros con un proceso aparte y absorbería justo lo que se busca medir. Por eso no se ejecutaron variantes ZINB.
+- El municipio se asigna por la etiqueta de la exportación de Trufi, no por límites oficiales. Es aceptable porque solo alimenta la línea base B1 y no es predictor de las técnicas elegidas.
+- La causa del hueco de marzo–abril de 2024: Trufi tenía extraídos esos datos y pudo extraer en poco tiempo; el resto sigue en proceso de exportación.
 - Hay pocos bloques de prueba (12), así que las métricas de prueba tienen varianza alta.
-- La calibración de la prueba es baja y la lista depende de la técnica: la brecha orienta la revisión, no demuestra
-  falta de rutas.
+- La calibración de la prueba es baja y la lista depende de la técnica: la brecha orienta la revisión, no demuestra falta de rutas.
+- No existe todavía verificación en terreno de la priorización; el protocolo propuesto en 06_propuesta la declara como trabajo futuro.
 
 ## 13. Reproducibilidad
 

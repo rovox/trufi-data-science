@@ -90,6 +90,9 @@ PLIEGUES = 5  # GroupKFold por bloque H3 res 6
 TOLERANCIA_EE = 1.0  # regla: la técnica más simple a ≤ 1 EE de la mejor devianza
 VECINAS_MIN = 3  # suavizado por vecindad: vecinas de entrenamiento mínimas
 K_VECINDAD_MAX = 10  # suavizado por vecindad: anillo H3 máximo antes de usar la tasa global
+# M3: HistGradientBoosting (Poisson con offset log(population))
+GB_MAX_ITER = 300  # máximo de iteraciones
+GB_LOSS = "poisson"  # pérdida
 GRILLA_GB = {"max_depth": [3, None], "min_samples_leaf": [20, 50], "learning_rate": [0.05, 0.1]}
 PLIEGUES_INTERNOS_GB = 3
 
