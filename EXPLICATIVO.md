@@ -78,6 +78,9 @@ fijar los criterios del preprocesamiento. No escribe en `data/`.
 - **Tiempo.** El período declarado va del 2022-09-12 al 2024-06-09. De 91 semanas, 84 tienen datos y faltan 7, del
   2024-03-11 al 2024-04-29. La media semanal sube de 22.731 a 39.864 consultas tras el hueco. El pico es a las 14 h
   ([cobertura](resultados/01_eda/figuras/cobertura_semanal.png)).
+- **Origen de los datos.** Los datos disponibles corresponden a las exportaciones que Trufi Association pudo extraer y
+  entregar en el plazo del proyecto; el resto del registro continúa en proceso de exportación. El hueco de siete
+  semanas y el cambio de esquema son consistentes con esa interrupción, aunque la causa exacta no pudo confirmarse.
 - **Usuarios.** Hay 130.545 usuarios. Solo 2 son anómalos (≥ 2 de 6 señales), con 233 consultas. Con una sola señal,
   la de rapidez, se marcarían 10.511 usuarios legítimos ([señales](resultados/01_eda/usuarios_senales.csv)).
 - **Área.** La componente H3 contigua de los orígenes, más 1 km, mide 1.505,7 km² y contiene el 99,87 % de los
@@ -133,6 +136,8 @@ ni usuarios anómalos. Las cifras compartidas coinciden con el EDA.
   ([correlaciones](resultados/03_feature_engineering/correlacion_predictores.csv)).
 - **Prueba por bloques.** Se reserva el 20 % de los bloques de cada anillo de distancia, sorteado con la semilla. La
   reserva es por bloques porque las zonas vecinas se parecen.
+- **Municipio por etiqueta de la exportación.** El municipio no viene de límites oficiales. Se acepta porque solo lo usa
+  la línea base B1; ninguna otra técnica lo tiene como predictor. No sirve para estadísticas oficiales por municipio.
 
 **Resultados** ([métricas](resultados/03_feature_engineering/metricas.json)):
 - Hay 1.381 zonas en el modelo, con 1.924.336 consultas, en 53 bloques. Los anillos se cortan a 12,52, 18,65 y
@@ -141,6 +146,12 @@ ni usuarios anómalos. Las cifras compartidas coinciden con el EDA.
   ([partición](resultados/03_feature_engineering/particion.csv), [bloques](resultados/03_feature_engineering/test_blocks.csv),
   [mapa](resultados/03_feature_engineering/figuras/anillos_y_prueba.png)). 125 zonas de prueba tocan zonas de
   entrenamiento en el borde de su bloque.
+- **Respaldo del municipio.** La etiqueta modal cubre el 99,38 % de las consultas de las zonas del modelo. El 5,02 % de
+  las zonas con consultas es de municipio mixto (menos del 90 % de sus consultas con una misma etiqueta) y 444 zonas
+  del modelo, sin consultas, heredan el municipio de sus vecinas más cercanas
+  ([por municipio](resultados/03_feature_engineering/resumen_municipio.csv)).
+- **Descripción del modelo.** [Estadísticos](resultados/03_feature_engineering/estadisticas_descriptivas.csv) y
+  [resumen por anillo](resultados/03_feature_engineering/resumen_anillo.csv) de las 1.381 zonas del modelo.
 
 **Verificaciones.** Se conservan todas las consultas. No hay nulos. Entrenamiento y prueba no comparten bloques. El
 objetivo y el GTFS no son predictores, y el sorteo solo usó bloques y anillos.
@@ -179,8 +190,18 @@ objetivo y el GTFS no son predictores, y el sorteo solo usó bloques y anillos.
 - B3 logra un D² de 0,73 ± 0,14 y un Spearman de 0,799 entre pliegues, con calibración fuera de pliegue de 0,977.
 - **Sobredispersión fuerte.** El alfa de NB2 es 2,63. La dispersión de Pearson del Poisson está muy lejos de 1
   ([coeficientes](resultados/04_modelado/coeficientes.csv)).
-- **M3 (HistGradientBoosting).** Hiperparámetros fijos: 300 iteraciones máx., pérdida de Poisson, offset log(población). Búsqueda en grilla (8 combinaciones de profundidad, muestras mín. y tasa de aprendizaje) dentro de cada pliegue con validación interna de 3 pliegues. La parada temprana reserva el 10 % de zonas al azar (no por bloques) como validación. Con estos valores, no ganó la escalera.
-- Los ceros observados son la señal que se busca interpretar como brecha de demanda. Un modelo con exceso de ceros (ZINB) los explicaría con un proceso aparte e impediría medir la brecha. Por eso no se ejecutaron variantes infladas en ceros.
+- **Hiperparámetros de M3.** La pérdida de Poisson y el máximo de 300 iteraciones son fijos. Una grilla de 8
+  combinaciones (profundidad, mínimo por hoja y tasa de aprendizaje) se busca dentro de cada pliegue, con 3 pliegues
+  internos por bloque ([por pliegue](resultados/04_modelado/cv_hiperparametros_m3.csv)). Con todo el entrenamiento
+  elige tasa 0,05, mínimo por hoja 20, sin límite de profundidad y 83 iteraciones
+  ([métricas](resultados/04_modelado/metricas.json)).
+- **Parada temprana no espacial.** M3 reserva una parte de las zonas al azar, no por bloques. El 98,6 % de esa reserva
+  tiene una vecina H3 en el resto, así que su validación interna puede ser optimista. Es una limitación de M3, que no
+  ganó la escalera.
+- **Exceso de ceros.** En el entrenamiento hay 345 ceros observados. Poisson espera 631,5 y la binomial negativa 323,8,
+  una razón de 0,94 ([ceros](resultados/04_modelado/ceros_esperados.csv)). La sobredispersión ya explica los ceros, así
+  que no hay base empírica para un modelo inflado en ceros. Además, los ceros son la señal que se interpreta como
+  brecha: un proceso aparte que los explicara absorbería parte de lo que se busca medir.
 - La varianza entre pliegues es alta: los pliegues que contienen el centro de la ciudad dominan la devianza.
 
 ## 9. Fase 5 · Evaluación (`05_evaluacion`)
@@ -248,7 +269,10 @@ documentada como decisión de la propuesta, no del modelo.
 **Implementación propuesta (no ejecutada).**
 - **Datos.** Exportaciones semanales, GTFS vigente y edición de Kontur en `data/raw/`.
 - **Infraestructura.** Un portátil con Python y `uv`; no se necesita un servidor.
-- - **Procedimiento.** Actualizar los datos en `data/raw/`, ejecutar los seis notebooks y comparar `metricas.json` con la edición anterior. Entregar `zonas_prioritarias.csv` y `mapa_brecha.html` a los coordinadores de mapeo. Registrar para cada zona visitada: (i) ruta existente no mapeada (añadir a GTFS), (ii) ruta mapeada correcta (validar), (iii) sin transporte (confirmar brecha). Calcular la precisión real como proporción de aciertos.
+- **Procedimiento.** Actualizar los datos en `data/raw/`, ejecutar los seis notebooks y comparar `metricas.json` con la
+  edición anterior. Entregar `zonas_prioritarias.csv` y `mapa_brecha.html` a los coordinadores de mapeo. Registrar cada
+  visita en `field_result` con una de estas categorías: `ruta_no_mapeada`, `ruta_mapeada_correcta` o `sin_transporte`.
+  La precisión real es la proporción de zonas visitadas con `ruta_no_mapeada`.
 - **Monitoreo.** Alertar si el Spearman de la brecha frente a la edición anterior cae por debajo de 0,8, si la calibración sale de [0,9; 1,1], o si aparecen semanas faltantes o parciales nuevas.
 
 ---
@@ -275,12 +299,18 @@ edición, contrastar B3 y M1 en terreno, porque sus listas difieren.
 - Kontur 2023 es una estimación modelada, no un censo. Las consultas se originan también en polos de actividad con poca
   población residente, lo que infla la tasa de sus vecinas en B3. No se ejecutaron variantes con Kontur 2022 (no disponible en `data/raw/`) ni resoluciones H3 distintas (res 9 imposible a partir de res 8; res 7 queda como trabajo futuro).
 - El GTFS declara vigencia desde 2024, después de gran parte de las consultas. La cobertura se mide al trazado, no a las paradas, lo que sobreestima la accesibilidad.
-- Los ceros observados son la señal que se interpreta como brecha: un modelo inflado en ceros habría explicado los ceros con un proceso aparte y absorbería justo lo que se busca medir. Por eso no se ejecutaron variantes ZINB.
-- El municipio se asigna por la etiqueta de la exportación de Trufi, no por límites oficiales. Es aceptable porque solo alimenta la línea base B1 y no es predictor de las técnicas elegidas.
-- La causa del hueco de marzo–abril de 2024: Trufi tenía extraídos esos datos y pudo extraer en poco tiempo; el resto sigue en proceso de exportación.
+- El municipio se asigna por la etiqueta de la exportación de Trufi, no por límites oficiales. Solo alimenta la línea
+  base B1 y la etiqueta modal respalda casi todas las consultas, pero no sirve para estadísticas municipales oficiales.
+- No se ejecutó un modelo inflado en ceros: el diagnóstico de la fase de modelado no muestra ceros en exceso para la
+  binomial negativa.
+- La parada temprana de M3 usa una reserva aleatoria, no espacial; su validación interna puede ser optimista.
+- El registro es parcial: corresponde a lo que Trufi Association pudo exportar en el plazo del proyecto y puede
+  ampliarse. Los resultados describen los datos entregados. La causa exacta del hueco no pudo confirmarse.
 - Hay pocos bloques de prueba (12), así que las métricas de prueba tienen varianza alta.
 - La calibración de la prueba es baja y la lista depende de la técnica: la brecha orienta la revisión, no demuestra falta de rutas.
-- No existe todavía verificación en terreno de la priorización; el protocolo propuesto en 06_propuesta la declara como trabajo futuro.
+- No existe todavía verificación en terreno de la priorización. La lista de zonas trae las columnas `field_result` y
+  `field_notes` para registrar cada visita ([lista](resultados/06_propuesta/zonas_prioritarias.csv)); con ellas se medirá
+  la proporción de zonas donde la brecha señalaba una ruta real.
 
 ## 13. Reproducibilidad
 
