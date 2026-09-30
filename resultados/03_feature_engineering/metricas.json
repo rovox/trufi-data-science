@@ -10,16 +10,20 @@
   ],
   "fraccion_prueba": 0.2,
   "municipios": 14,
+  "pct_consultas_municipio_modal": 99.38,
   "pct_consultas_prueba": 9.63,
+  "pct_zonas_municipio_mixto": 5.02,
   "predictores": [
     "dist_centro_km",
     "pop_ring1"
   ],
   "semilla": 42,
   "spearman_pop_ring1_pop_ring2": 0.954,
+  "umbral_municipio_mixto": 90.0,
   "zonas": 1628,
   "zonas_cubiertas": 634,
   "zonas_modelo": 1381,
+  "zonas_municipio_por_vecindad": 444,
   "zonas_prueba": 352,
   "zonas_prueba_borde": 125
 }

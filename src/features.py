@@ -83,13 +83,24 @@ def reparar_texto(texto: str | None) -> str | None:
         return texto
 
 
+def municipio_modal(limpias: pl.DataFrame) -> pl.DataFrame:
+    """Municipio modal de los orígenes de cada zona con consultas.
+
+    Devuelve `h3_origin`, `origin_municipio` (modal, texto reparado; empate: orden alfabético),
+    `consultas_modal` y `consultas_total`. Es la etiqueta que usan B1 y la pureza del municipio.
+    """
+    return (limpias.select("h3_origin", "origin_municipio")
+            .with_columns(pl.col("origin_municipio").map_elements(reparar_texto, return_dtype=pl.Utf8))
+            .group_by("h3_origin", "origin_municipio").len()
+            .with_columns(pl.col("len").sum().over("h3_origin").alias("consultas_total"))
+            .sort(["h3_origin", "len", "origin_municipio"], descending=[False, True, False])
+            .group_by("h3_origin", maintain_order=True).first()
+            .rename({"len": "consultas_modal"}))
+
+
 def agregar_municipio(tabla: pl.DataFrame, limpias: pl.DataFrame, k_max: int = 30) -> pl.DataFrame:
     """Municipio modal de los orígenes de cada zona; sin consultas, el de las zonas etiquetadas más cercanas."""
-    modal = (limpias.select("h3_origin", "origin_municipio")
-             .with_columns(pl.col("origin_municipio").map_elements(reparar_texto, return_dtype=pl.Utf8))
-             .group_by("h3_origin", "origin_municipio").len()
-             .sort(["h3_origin", "len", "origin_municipio"], descending=[False, True, False])
-             .group_by("h3_origin", maintain_order=True).first())
+    modal = municipio_modal(limpias)
     etiqueta = dict(zip(modal["h3_origin"].to_list(), modal["origin_municipio"].to_list(), strict=True))
     salida = []
     for c in tabla["h3_cell"].to_list():
@@ -154,13 +165,9 @@ def resumen_por(tabla: pl.DataFrame, grupo: str) -> pl.DataFrame:
             .sort(grupo))
 
 
-def pureza_municipio(limpias: pl.DataFrame) -> pd.DataFrame:
-    """Por zona, % de consultas con la etiqueta de municipio modal y % de zonas con municipio mixto."""
-    por_zona_mun = (limpias.group_by(pl.col("h3_origin").alias("h3_cell"), pl.col("origin_municipio"))
-                    .agg(pl.len().alias("consultas")))
-    modal = por_zona_mun.sort("consultas", descending=True).group_by("h3_cell").first()
-    totales = por_zona_mun.group_by("h3_cell").agg(pl.col("consultas").sum().alias("total"))
-    return (modal.join(totales, on="h3_cell")
-            .with_columns((pl.col("consultas") / pl.col("total") * 100).round(1).alias("pct_modal"))
-            .select("h3_cell", "origin_municipio", "pct_modal")
-            .to_pandas())
+def pureza_municipio(limpias: pl.DataFrame) -> pl.DataFrame:
+    """Por zona con consultas: municipio modal y % de sus consultas con esa etiqueta (`pct_modal`)."""
+    return (municipio_modal(limpias)
+            .with_columns((pl.col("consultas_modal") / pl.col("consultas_total") * 100).alias("pct_modal"))
+            .rename({"h3_origin": "h3_cell", "origin_municipio": "municipality"})
+            .sort("h3_cell"))

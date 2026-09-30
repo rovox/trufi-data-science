@@ -54,6 +54,7 @@ DIST_MAX_M = 50_000  # distancia origen–destino máxima de una consulta válid
 BUFFER_AREA_M = 1_000  # margen de la envolvente de orígenes
 K_COMPONENTE = 1  # contigüidad H3 de la componente espacial principal
 POP_MIN = 10  # población mínima para que una zona entre al modelo
+UMBRAL_MUNICIPIO_MIXTO = 90.0  # una zona es de municipio mixto si < 90 % de sus consultas comparten la etiqueta modal
 
 # Señales de usuario anómalo; se marca con al menos MIN_SENALES activas
 SENAL_VOLUMEN = 1_000  # consultas totales
@@ -93,6 +94,8 @@ K_VECINDAD_MAX = 10  # suavizado por vecindad: anillo H3 máximo antes de usar l
 # M3: HistGradientBoosting (Poisson con offset log(population))
 GB_MAX_ITER = 300  # máximo de iteraciones
 GB_LOSS = "poisson"  # pérdida
+GB_FRACCION_PARADA = 0.10  # reserva aleatoria (no por bloques) de la parada temprana; = valor por defecto de scikit-learn
+GB_SORTEOS_FUGA = 200  # sorteos para estimar cuánta reserva tiene una vecina H3 en el resto
 GRILLA_GB = {"max_depth": [3, None], "min_samples_leaf": [20, 50], "learning_rate": [0.05, 0.1]}
 PLIEGUES_INTERNOS_GB = 3
 
