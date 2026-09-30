@@ -107,5 +107,7 @@ TOP_K = 20  # zonas prioritarias para revisión en terreno
 # con la brecha de Pearson más negativa entre las que no tienen trazado GTFS a ≤ COBERTURA_M, porque el
 # esfuerzo voluntario es mapear rutas; las zonas cubiertas con brecha negativa se listan como "revisar".
 PRIORIDAD_SOLO_SIN_COBERTURA = True
+# Registro de la visita a las zonas prioritarias; la última es el valor inicial
+CATEGORIAS_TERRENO = ["ruta_no_mapeada", "ruta_mapeada_correcta", "sin_transporte", "sin_visitar"]
 POP_MIN_SENSIBILIDAD = 50  # variante de sensibilidad del umbral de población
 CONTRACCION_RAZON = 1.0  # pseudoconteo de la razón observado/esperado contraída
