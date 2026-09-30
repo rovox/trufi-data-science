@@ -173,12 +173,14 @@ class M3:
 
     objetivo: str = "query_count"
     elegidos_: dict | None = field(default=None, init=False)
+    puntaje_interno_: float = field(default=np.nan, init=False)  # devianza interna de la combinación elegida
     modelo_: HistGradientBoostingRegressor | None = field(default=None, init=False)
 
     @staticmethod
     def _ajustar(params: dict, entreno: pd.DataFrame, objetivo: str) -> HistGradientBoostingRegressor:
         pob = entreno["population"].to_numpy(float)
-        gb = HistGradientBoostingRegressor(loss="poisson", max_iter=300, early_stopping=True,
+        gb = HistGradientBoostingRegressor(loss=config.GB_LOSS, max_iter=config.GB_MAX_ITER, early_stopping=True,
+                                           validation_fraction=config.GB_FRACCION_PARADA,
                                            random_state=config.SEMILLA, **params)
         return gb.fit(disenio(entreno), entreno[objetivo].to_numpy(float) / pob, sample_weight=pob)
 
@@ -195,6 +197,7 @@ class M3:
                 devs.append(mean_poisson_deviance(va_df[self.objetivo], yhat))
             puntajes.append(np.mean(devs))
         self.elegidos_ = grilla[int(np.argmin(puntajes))]
+        self.puntaje_interno_ = float(np.min(puntajes))
         self.modelo_ = self._ajustar(self.elegidos_, entreno, self.objetivo)
         return self
 
@@ -233,17 +236,24 @@ def pliegues_espaciales(datos: pd.DataFrame) -> list[tuple[np.ndarray, np.ndarra
 
 
 def validar_por_bloques(datos: pd.DataFrame, tecnicas: list[str], objetivo: str = "query_count"
-                        ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Ajusta cada técnica en cada pliegue. Devuelve (métricas por pliegue, predicciones fuera de pliegue)."""
-    filas, oof = [], []
+                        ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Ajusta cada técnica en cada pliegue.
+
+    Devuelve (métricas por pliegue, predicciones fuera de pliegue, hiperparámetros de M3 por pliegue).
+    """
+    filas, oof, hiper = [], [], []
     for pliegue, (tr, va) in enumerate(pliegues_espaciales(datos)):
         entreno, valid = datos.iloc[tr], datos.iloc[va]
         for t in tecnicas:
-            yhat = np.maximum(crear(t, objetivo).fit(entreno).predict(valid), EPS)
+            modelo = crear(t, objetivo).fit(entreno)
+            yhat = np.maximum(modelo.predict(valid), EPS)
             filas.append({"tecnica": t, "pliegue": pliegue, **metricas(valid[objetivo], yhat)})
             oof.append(pd.DataFrame({"h3_cell": valid["h3_cell"].to_numpy(), "pliegue": pliegue, "tecnica": t,
                                      "observado": valid[objetivo].to_numpy(), "esperado": yhat}))
-    return pd.DataFrame(filas), pd.concat(oof, ignore_index=True)
+            if t == "M3":
+                hiper.append({"pliegue": pliegue, **modelo.elegidos_, "n_iter": int(modelo.modelo_.n_iter_),
+                              "devianza_interna": modelo.puntaje_interno_})
+    return pd.DataFrame(filas), pd.concat(oof, ignore_index=True), pd.DataFrame(hiper)
 
 
 def regla_seleccion(por_pliegue: pd.DataFrame) -> tuple[str, pd.DataFrame]:
@@ -273,25 +283,45 @@ def esperado_por_zona(entreno: pd.DataFrame, prueba: pd.DataFrame, tecnica: str,
     Entrenamiento: predicción fuera de pliegue (GroupKFold por bloque).
     Prueba: modelo ajustado con todo el entrenamiento.
     """
-    _, oof = validar_por_bloques(entreno, [tecnica], objetivo)
+    _, oof, _ = validar_por_bloques(entreno, [tecnica], objetivo)
     final = crear(tecnica, objetivo).fit(entreno)
     pr = pd.DataFrame({"h3_cell": prueba["h3_cell"].to_numpy(), "esperado": np.maximum(final.predict(prueba), EPS)})
     return pd.concat([oof[["h3_cell", "esperado"]].assign(particion="entrenamiento"),
                       pr.assign(particion="prueba")], ignore_index=True).sort_values("h3_cell", ignore_index=True)
 
 
-def ceros_esperados(modelo_m1: M1, modelo_m2: M2, frame: pd.DataFrame, objetivo: str = "query_count") -> pd.DataFrame:
-    """Ceros observados frente a ceros esperados por Poisson (M1) y NB2 (M2)."""
-    mu = modelo_m1.predict(frame)
-    # Poisson: P(0) = e^-μ
-    p0_m1 = np.exp(-mu)
-    # NB2: P(0) = (1 + α*μ)^(-1/α)
-    p0_m2 = (1 + modelo_m2.alfa_ * mu) ** (-1 / modelo_m2.alfa_)
-    obs_ceros = (frame[objetivo] == 0).astype(int)
-    return pd.DataFrame({
-        "h3_cell": frame["h3_cell"].to_numpy(),
-        "observados_ceros": obs_ceros,
-        "esperados_ceros_m1_poisson": (p0_m1 > 0.5).astype(int),
-        "prob_cero_m1": p0_m1.round(4),
-        "prob_cero_m2": p0_m2.round(4)
-    }).sort_values("h3_cell", ignore_index=True)
+def ceros_esperados(entreno: pd.DataFrame, objetivo: str = "query_count") -> pd.DataFrame:
+    """Ceros observados frente a los que esperan B3, Poisson (M1) y binomial negativa (M2), en entrenamiento.
+
+    Poisson: P(0) = exp(-μ). NB2: P(0) = (1 + αμ)^(-1/α). Cada modelo usa su propio μ. B3 no es
+    probabilístico: solo se cuentan las zonas con esperado menor que 0,5 (`zonas_mu_menor_0_5`).
+    """
+    m1, m2, b3 = M1(objetivo).fit(entreno), M2(objetivo).fit(entreno), B3(objetivo).fit(entreno)
+    mu = {"B3": b3.predict(entreno), "M1": m1.predict(entreno), "M2": m2.predict(entreno)}
+    p0 = {"M1": np.exp(-mu["M1"]), "M2": (1 + m2.alfa_ * mu["M2"]) ** (-1 / m2.alfa_)}
+    observados = int((entreno[objetivo] == 0).sum())
+    filas = []
+    for t in ("B3", "M1", "M2"):
+        esperados = float(p0[t].sum()) if t in p0 else np.nan
+        filas.append({"tecnica": t, "ceros_observados": observados, "ceros_esperados": esperados,
+                      "razon_esperados_observados": esperados / observados,
+                      "zonas_mu_menor_0_5": int((mu[t] < 0.5).sum())})
+    return pd.DataFrame(filas)
+
+
+def fuga_parada_temprana(entreno: pd.DataFrame) -> float:
+    """% medio de zonas de la reserva de la parada temprana con al menos una vecina H3 en el resto.
+
+    La parada temprana de M3 reserva zonas al azar, no bloques. Un valor alto indica que su validación
+    interna no es espacial y puede ser optimista. Se estima con sorteos equivalentes (semilla fija).
+    """
+    rng = np.random.default_rng(config.SEMILLA)
+    celdas = entreno["h3_cell"].to_numpy()
+    conjunto = set(celdas)
+    vecinas = {c: [n for n in h3.grid_ring(c, 1) if n in conjunto] for c in celdas}
+    n = max(1, round(config.GB_FRACCION_PARADA * len(celdas)))
+    pct = []
+    for _ in range(config.GB_SORTEOS_FUGA):
+        reserva = set(rng.choice(celdas, n, replace=False))
+        pct.append(np.mean([any(v not in reserva for v in vecinas[c]) for c in reserva]) * 100)
+    return float(np.mean(pct))
