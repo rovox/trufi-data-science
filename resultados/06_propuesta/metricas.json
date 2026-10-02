@@ -1,0 +1,13 @@
+{
+  "cobertura_m": 500,
+  "municipios_prioritarias": 4,
+  "pct_demanda_no_resuelta_sin_cobertura_top_k": 79.7,
+  "poblacion_prioritarias": 20370,
+  "semilla": 42,
+  "top_k": 20,
+  "w_obs_semanas": 81.143,
+  "zonas_mapear": 598,
+  "zonas_prioritarias": 20,
+  "zonas_revisar": 325,
+  "zonas_sin_brecha": 458
+}

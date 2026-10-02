@@ -1,179 +1,104 @@
-# trufi-data-science
+# Consultas esperadas de Trufi App por zona H3 — Cochabamba
 
-Análisis de consultas de rutas de **Trufi App — Área Metropolitana de Cochabamba**.
-Pipeline de ciencia de datos que parte de 85 exportaciones semanales de logs de
-consultas (2022–2024) + GTFS, y termina en análisis y modelado de la demanda de
-transporte público.
+Pipeline reproducible (CRISP-DM) que estima el número esperado de consultas de ruta de Trufi App por zona hexagonal
+H3 de resolución 8 en el eje metropolitano de Cochabamba (septiembre de 2022 a junio de 2024). A partir de la
+población residente y el contexto territorial, compara lo esperado con lo observado y prioriza zonas para el mapeo
+voluntario de Trufi Association.
 
-## Estado del pipeline
+La narrativa completa (problema, decisiones, resultados y limitaciones) está en [`EXPLICATIVO.md`](EXPLICATIVO.md).
+Las reglas de mantenimiento del proyecto están en [`AGENTS.md`](AGENTS.md).
 
-| Stage | Estado |
-|---|---|
-| 0 · Ingesta (`data/raw/`, GTFS) | ✅ done |
-| 1 · Data understanding (auditoría → H3) | ✅ done |
-| 2 · Data preparation (7.3) | ✅ done |
-| 3 · Modelado (7.4) | ✅ done |
-| 4 · Evaluación (7.5) | ✅ done |
-| 5 · Despliegue (7.6) | ✅ done |
-| 6 · Conclusiones y recomendaciones (2.8) | ✅ done |
+## Instalación
 
-Bitácora completa de lo ejecutado en cada etapa: [`docs/ROADMAP.md`](docs/ROADMAP.md).
-Estrategia de organización y convenciones: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-## Resumen de hallazgos (Stage 1)
-
-- **1.927.675 consultas** consolidadas sin pérdida de filas (85 CSVs → `data/interim/queries.parquet/`).
-- Cobertura real: **2022-09-12 → 2024-06-03**, con un hueco estructural de 7 semanas (11-mar → 22-abr 2024).
-- `distancia` es **haversine en metros** (correlación 0.999997 contra recálculo).
-- `userID` es de **nivel instalación** → el target individual es viable; complementar con agregación H3 (router centralización: los 10 celdas origen concentran 42% de la demanda).
-- Anomalías de exportación resueltas: 6 archivos con nombres de columnas en inglés + codificación Latin-1.
-
-Reportes completos en [`reports/01_data_understanding/README.md`](reports/01_data_understanding/README.md).
-
-## Resumen de hallazgos (Stage 3 — Modelado, 7.4)
-
-- Panel de modelado: **124.160 observaciones** (1.552 celdas × 84 semanas,
-  grilla completa; ausencia = 0 consultas, no dato faltante).
-- Cuatro modelos comparados con validación por ventanas deslizantes
-  (nunca k-fold aleatorio): Ridge, Lasso, Random Forest, XGBoost.
-- **Modelo final: Random Forest** — MAE test = 10.19 consultas/semana
-  (R² = 0.656), supera a la línea base estacional (MAE 11.05) y a XGBoost
-  (MAE 13.85, peor que la línea base).
-- Hallazgo relevante: Ridge/Lasso extrapolan de forma inestable en escala
-  log1p sobre la tendencia de crecimiento — motivo documentado, no un error
-  de implementación (detalle en `reports/03_modeling/02_model_comparison.md`).
-
-Reportes completos en [`reports/03_modeling/README.md`](reports/03_modeling/README.md).
-
-## Resumen de hallazgos (Stage 4 — Evaluación, 7.5)
-
-- **H1 confirmada**: las celdas periféricas tienen una tasa de demanda no
-  resuelta (cobertura GTFS) significativamente mayor que las centrales
-  (Mann-Whitney, p=6.1×10⁻⁹).
-- **H2 matizada**: Random Forest supera a la línea base estacional de forma
-  estadísticamente significativa (Wilcoxon pareado por celda, p=0.033),
-  pero la ventaja está concentrada en las celdas de mayor demanda, no
-  repartida uniformemente — el test de Diebold-Mariano semanal (n=8, poca
-  potencia) no alcanza significancia por sí solo.
-- **Hallazgo relevante**: 2 de las 8 semanas de test (2024-W18, 2024-W23)
-  resultaron ser fragmentos de un solo día, no semanas completas — un
-  artefacto de cobertura de exportación no detectado en la Sección 7.3.9.
-  Corrigiendo por esto, el MAE real de Random Forest es 5.91 (R²=0.889),
-  no 10.19 — las cifras de la Sección 7.4 se mantienen como resultado
-  principal (más conservador) pero este hallazgo se documenta en detalle.
-- Sin señales de sobreajuste descontrolado (curvas de aprendizaje).
-
-Reportes completos en [`reports/04_evaluation/README.md`](reports/04_evaluation/README.md).
-
-## Resumen de hallazgos (Stage 5 — Despliegue, 7.6)
-
-- **Prototipo real y ejecutable**: `src/trufi_ds/api.py` (FastAPI) sirve
-  predicciones de demanda por celda vía `GET /predict?cell=...`, no solo un
-  diagrama de arquitectura en papel.
-- **Umbrales de monitoreo derivados de datos reales**: alerta de MAE
-  semanal > 11.64 (media + 2σ de las semanas de test limpias) y piso de
-  completitud de datos < 10,041 consultas/semana (30% de la mediana
-  reciente) — este último existe porque la Sección 7.5 encontró
-  exactamente el problema que previene (semanas parciales no detectadas).
-- **Cadencia**: actualización GTFS semanal (ya implementada en
-  `run_update_pipeline.py`), reentrenamiento trimestral (alineado con la
-  ventana de validación cruzada de 13 semanas de la Sección 7.4).
-- **Limitación operativa real, no hipotética**: al probar el prototipo se
-  confirmó que la última semana del dataset (2024-W23) es la misma semana
-  parcial de la Sección 7.5, por lo que la primera predicción en vivo
-  heredaría un `lag1` artificialmente bajo — documentado con mitigación
-  propuesta.
-
-Reportes completos en [`reports/05_deployment/README.md`](reports/05_deployment/README.md).
-
-## Conclusiones y recomendaciones (2.8)
-
-Síntesis final del proyecto — responde al objetivo general y a cada
-objetivo específico citando su evidencia exacta en `reports/02_*` a
-`reports/05_*` (sin introducir hallazgos nuevos), y agrupa recomendaciones
-por tipo (ajustes metodológicos inmediatos, mejoras al modelado,
-aplicaciones futuras, y qué falta antes de un despliegue productivo real).
-
-Reporte completo en [`reports/06_conclusions/README.md`](reports/06_conclusions/README.md).
-
-## Stack
-
-- Python ≥ 3.12, gestión con [`uv`](https://docs.astral.sh/uv/)
-- `polars`, `duckdb`, `pyarrow` (procesamiento) · `h3`, `geopandas`, `shapely` (espacial)
-- `scikit-learn`, `xgboost`, `shap` (modelado) · `fastapi`, `uvicorn` (despliegue) · `pytest`, `ruff` (dev)
-- Código y modelos versionados en Git; los datos se mantienen fuera del repositorio (`data/`)
-
-## Cómo reproducir
+Requiere Python ≥ 3.12 y [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync                 # instala dependencias desde uv.lock
-# Coloca los datos externos en ./data/ antes de ejecutar el pipeline.
-
-# Stage 1 — Data understanding
-for i in 01 02 03 04 05 06 07 08; do uv run src/${i}_*.py; done
-
-# Stage 2 — Data preparation (7.3)
-for i in 09 10 11 12 13 14 15 16 17; do uv run src/${i}_*.py; done
-
-# Stage 3 — Modelado (7.4)
-for i in 18 19 20; do uv run src/${i}_*.py; done
-
-# Stage 4 — Evaluación (7.5)
-for i in 21 22 23; do uv run src/${i}_*.py; done
-
-# Stage 5 — Despliegue (7.6)
-for i in 24 25; do uv run src/${i}_*.py; done
+uv sync          # crea .venv idéntico a uv.lock
+uv pip check     # verifica dependencias
 ```
 
-Para levantar el prototipo de predicción (opcional):
-```bash
-uv run uvicorn trufi_ds.api:app --reload --port 8000
-curl "http://127.0.0.1:8000/predict?cell=888b2c8ae5fffff"
-```
-
-Cada script escribe su reporte en la carpeta `reports/` correspondiente (o su
-dataset en `data/interim/` / `data/processed/`). Requiere los datos en
-`data/` (ver §Datos).
-
-## Estructura del repo
-
-```
-├── data/                     # datos locales, ignorados por Git
-│   ├── raw/                  #   85 CSVs semanales + GTFS (solo lectura)
-│   ├── interim/              #   queries.parquet + h3_*.parquet
-│   ├── processed/            #   (resultados de preparation)
-│   ├── external/             #   GTFS MDB
-│   └── _archive/             #   archivo zip original
-├── models/                   # modelos entrenados, *.pkl
-├── src/                      # scripts por tarea (NN_*)
-│   └── trufi_ds/
-│       └── api.py            # servicio de predicción (FastAPI, Sección 7.6)
-├── reports/
-│   ├── 01_data_understanding/
-│   ├── 02_data_preparation/
-│   ├── 03_modeling/
-│   ├── 04_evaluation/
-│   ├── 05_deployment/
-│   └── 06_conclusions/
-├── docs/                     # ARCHITECTURE.md (estrategia), ROADMAP.md (bitácora)
-├── pyproject.toml
-└── uv.lock
-```
+El kernel de los notebooks es el Python de `.venv`.
 
 ## Datos
 
-- **CSV de consultas**: exportaciones semanales del backend de Trufi App
-  (Google Drive), 2022-09 a 2024-06.
-- **GTFS**: feed del transporte de Cochabamba (`data/raw/gtfs/` y `data/external/`,
-  fuente MDB).
-- `data/` no se almacena en Git. Debe obtenerse desde el almacenamiento externo
-  del proyecto y colocarse en la raíz antes de ejecutar los scripts.
-- Los datasets generados son reproducibles y deben documentar su script de
-  origen; permanecen en `data/` y no se suben al repositorio.
-- Los modelos y metadatos pequeños sí pueden versionarse en Git; no se deben
-  acumular copias regenerables innecesarias.
+`data/` está fuera de Git. Antes de ejecutar, `data/raw/` debe contener (solo lectura):
 
-## Licencia / convenciones
+| Fuente | Ruta |
+|---|---|
+| 85 exportaciones semanales de consultas de Trufi App | `data/raw/*.csv` (`AAAA-MM-DD_to_AAAA-MM-DD_AAAA-SS.csv`) |
+| Feed GTFS de Trufi Cochabamba | `data/raw/gtfs/*.txt` |
+| Kontur Population 2023-11-01 (H3 res 8) | `data/raw/kontur_population_BO_20231101.gpkg.gz` |
 
-Proyecto académico (Diplomado en Ciencia de Datos — UMSS) sobre datos de uso de
-app, repositario **privado**.
+`data/interim/` y `data/processed/` los generan los notebooks.
+
+## Ejecución
+
+Desde la raíz, en orden (tarda unos 8 minutos en total):
+
+```bash
+for nb in notebooks/0*.ipynb; do
+  uv run jupyter nbconvert --to notebook --execute --inplace "$nb"
+done
+```
+
+También se pueden abrir y ejecutar celda por celda con `uv run jupyter lab`. Cada notebook borra y regenera sus
+salidas, imprime el tiempo de cada sección y termina con verificaciones (`assert`) y su `metricas.json`.
+
+| Notebook | Fase CRISP-DM | Lee | Escribe |
+|---|---|---|---|
+| `01_eda` | Comprensión de los datos | `data/raw/` | `resultados/01_eda/` (no escribe en `data/`) |
+| `02_preprocesamiento` | Preparación (limpieza) | `data/raw/` | `data/interim/`, `resultados/02_preprocesamiento/` |
+| `03_feature_engineering` | Preparación (variables y partición) | `data/interim/` | `data/processed/tabla_modelado.parquet`, `resultados/03_feature_engineering/` (incluye `test_blocks.csv`) |
+| `04_modelado` | Modelado | tabla de modelado sin bloques de prueba | `resultados/04_modelado/` (incluye `modelo_final.joblib`) |
+| `05_evaluacion` | Evaluación | tabla de modelado y modelo final | `resultados/05_evaluacion/` (incluye `brecha_por_zona.csv`) |
+| `06_propuesta` | Despliegue (propuesta) | brecha por zona | `resultados/06_propuesta/` (entregables) |
+
+## Estructura
+
+```
+├── README.md            # este archivo (técnico)
+├── EXPLICATIVO.md       # narrativa del estudio
+├── AGENTS.md            # reglas de mantenimiento
+├── config.py            # rutas, parámetros, umbrales y semilla (único lugar)
+├── src/                 # funciones que llaman los notebooks
+│   ├── entorno.py       #   salidas por fase, cronómetro, paleta
+│   ├── lectura.py       #   consultas (2 esquemas, UTF-8/Latin-1), GTFS, Kontur
+│   ├── limpieza.py      #   usuarios anómalos, área de estudio, filtros, cobertura semanal
+│   ├── eda.py           #   perfiles exploratorios
+│   ├── espacial.py      #   H3, distancias, trazado GTFS, Moran/LISA
+│   ├── features.py      #   tabla por zona, coronas, municipio, anillos, sorteo de prueba
+│   ├── modelos.py       #   escalera B0–M3, validación por bloques, regla de selección
+│   └── evaluacion.py    #   brecha, calibración, sensibilidad, mapa folium
+├── notebooks/           # 01_eda … 06_propuesta
+├── data/                # raw (fuentes), interim, processed — fuera de Git
+└── resultados/<fase>/   # CSV, figuras/ y metricas.json por fase
+```
+
+## Entregables
+
+En `resultados/06_propuesta/`:
+
+| Archivo | Contenido |
+|---|---|
+| `predicciones_por_zona.csv` / `.geojson` | observado, esperado (total y por semana), brecha, cobertura GTFS y acción sugerida por zona |
+| `zonas_prioritarias.csv` | 20 zonas para revisión en terreno, con enlace a OpenStreetMap |
+| `mapa_brecha.html` | mapa interactivo de la brecha; se abre en cualquier navegador |
+
+## Notas de reproducibilidad
+
+- **Semilla única** (`config.SEMILLA = 42`) para el sorteo de prueba, las permutaciones y el gradient boosting.
+- **Prueba de uso único.** `03` sortea los bloques de prueba antes de cualquier modelo; `04` solo los descarta;
+  `05` los evalúa una vez.
+- **Protocolo antes que resultados.** Técnicas, predictores, pliegues y regla de selección están en `config.py`.
+- **GTFS fuera del modelo.** `dist_trazado_m` y `gtfs_covered` solo sirven para interpretar la brecha.
+- **Determinismo.** Re-ejecutar no cambia ningún CSV ni `metricas.json`. Solo cambian los metadatos de los notebooks
+  y los identificadores internos del HTML de folium.
+- **Escala semanal.** El modelo estima el total del período; `expected_week` divide por `W_obs`, las semanas
+  equivalentes con datos (`resultados/02_preprocesamiento/metricas.json`), porque hay un hueco sin datos en 2024.
+- Lint del paquete: `uv run ruff check src config.py`.
+
+## Limitaciones
+
+Las consultas reflejan a quienes usan la aplicación, no a toda la población. Kontur es una estimación modelada, no un
+censo. El GTFS declara vigencia desde 2024 y la cobertura se mide al trazado, no a las paradas. La lista priorizada
+orienta la revisión en terreno: no certifica la ausencia de rutas. El detalle está en `EXPLICATIVO.md`.

@@ -3,39 +3,21 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
-.uv/
 
-# --- Ruff / tooling caches ---
+# --- Caches ---
 .ruff_cache/
-.pytest_cache/
-.mypy_cache/
-.ipython/
-
-# --- Jupyter ---
 .ipynb_checkpoints/
-notebooks/.ipynb_checkpoints/
 
 # --- OS / editor ---
 .DS_Store
-Thumbs.db
-*.swp
 .idea/
 .vscode/
 
-# --- Secrets ---
+# --- Secretos ---
 .env
-.env.*
-*.pem
-*.key
 
-# --- Local scratch ---
-tmp/
-scratch/
-
-# --- Local datasets ---
-# Obtain or materialize data separately; the repository stores code and metadata.
+# --- Datos locales (fuera de Git; ver README) ---
 data/
 
-# --- Regenerable preparation outputs ---
-# These intermediate datasets exceed GitHub's regular file-size limit.
-data/processed/prep_*.parquet
+# --- Paquete de referencia de otro proyecto (no forma parte de este repo) ---
+dist/

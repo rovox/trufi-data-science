@@ -1,0 +1,5 @@
+variable,population,pop_ring1,pop_ring2,dist_centro_km
+population,1,0.908,0.845,-0.576
+pop_ring1,0.908,1,0.954,-0.646
+pop_ring2,0.845,0.954,1,-0.696
+dist_centro_km,-0.576,-0.646,-0.696,1

@@ -1,0 +1,9 @@
+variante,universo,zonas_comunes,spearman_brecha,jaccard_top_k
+mejor_tecnica_media,todas,1381,0.446,0.053
+mejor_tecnica_media,sin_cobertura,755,0.429,0.333
+tasa_global,todas,1381,0.192,0.026
+tasa_global,sin_cobertura,755,0.254,0.143
+antes_del_hueco,todas,1381,0.995,1
+antes_del_hueco,sin_cobertura,755,0.988,1
+poblacion_minima_mayor,todas,1158,0.951,0.818
+poblacion_minima_mayor,sin_cobertura,544,0.901,0.818

@@ -1,39 +1,35 @@
 [project]
 name = "trufi-data-science"
-version = "0.1.0"
-description = "Trufi App route query analysis — Cochabamba Metropolitan Area"
+version = "1.0.0"
+description = "Consultas esperadas de Trufi App por zona H3 en el eje metropolitano de Cochabamba (CRISP-DM)"
 requires-python = ">=3.12"
 dependencies = [
     "polars>=1.9",
-    "duckdb>=1.1",
     "pyarrow>=17.0",
     "pandas>=2.2",
     "numpy>=2.0",
+    "scipy>=1.13",
     "h3>=4.1",
     "geopandas>=1.0",
     "shapely>=2.0",
+    "pyogrio>=0.10",
     "matplotlib>=3.9",
-    "seaborn>=0.13",
     "folium>=0.17",
     "scikit-learn>=1.5",
-    "xgboost>=2.1",
+    "statsmodels>=0.14",
+    "esda>=2.6",
+    "libpysal>=4.12",
+    "joblib>=1.4",
     "jupyter>=1.1",
-    "mobility-db-api>=0.5.1",
-    "requests>=2.34.2",
+    "ipykernel>=6.29",
+    "nbconvert>=7.16",
 ]
 
 [dependency-groups]
-dev = [
-    "pytest>=8.3",
-    "ruff>=0.6",
-]
+dev = ["ruff>=0.6"]
 
-[tool.ruff.lint.per-file-ignores]
-# Stage-1 scripts are frozen reference outputs; legacy lints are tolerated.
-"src/01_audit_schema.py" = ["BLE001", "FURB192"]
-"src/08_h3_preview.py" = ["BLE001"]
-# Stage-2 utility scripts (user-facing CLIs with intentional broad exception handling)
-"src/generate_manifest.py" = ["BLE001", "DTZ005"]
-"src/gtfs_download.py" = ["BLE001"]
-"src/run_update_pipeline.py" = ["DTZ005", "PLW1510"]
-"src/trufi_ds/io.py" = ["DTZ005"]
+[tool.ruff]
+line-length = 120
+
+[tool.uv]
+package = false

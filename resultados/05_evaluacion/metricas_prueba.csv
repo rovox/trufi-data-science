@@ -1,0 +1,7 @@
+metrica,prueba,cv_media,cv_de
+devianza_poisson,1086.47,1389.29,1944.05
+d2,0.4583,0.7299,0.1401
+mae,428.053,1212.57,1619.24
+spearman,0.8799,0.799,0.0403
+calibracion,0.5972,0.9766,
+d2_frente_tasa_global,0.5025,,

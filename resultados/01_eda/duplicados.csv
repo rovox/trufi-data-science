@@ -1,0 +1,5 @@
+definicion,columnas,copias_sobrantes,pct_copias
+exacto,"date, lat_orig, lon_orig, lat_dest, lon_dest, userID, distancia, origin_municipio, dest_municipio, hour, day_of_week, day_of_month, weekend, year_week_number, time_of_day, ts, year, week",60,0.0031
+od_ts,"lat_orig, lon_orig, lat_dest, lon_dest, ts",60,0.0031
+usuario_ts,"userID, ts",90,0.0047
+od_ts_usuario,"lat_orig, lon_orig, lat_dest, lon_dest, ts, userID",60,0.0031

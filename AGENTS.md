@@ -1,73 +1,105 @@
 # AGENTS.md
 
-Pipeline de ciencia de datos: análisis de consultas de rutas de **Trufi App — Cochabamba**.
-Contexto y estrategia (en español): `README.md`, `docs/ARCHITECTURE.md` (organización),
-`docs/ROADMAP.md` (próximo stage a implementar).
+Reglas operativas para quien mantenga este proyecto: estimación de las consultas esperadas de Trufi App por zona
+H3 res 8 en el eje metropolitano de Cochabamba (CRISP-DM). La narrativa vive en `EXPLICATIVO.md`, la guía técnica
+en `README.md` y aquí solo van reglas, comandos y criterios de calidad.
 
-## Comandos
+## 1. Principios
 
-- Instalar deps: `uv sync` (Python ≥ 3.12; usar **siempre `uv`**, nunca pip).
-- Lint: `uv run ruff check src`.
-- Tests: `uv run pytest` — no hay tests aún; pytest es dev-dep.
-- Scripts stage 1: `uv run src/NN_*.py`, en orden `01`→`08` (03–08 requieren el `queries.parquet` que genera 02).
-- Scripts stage 2: `uv run src/NN_*.py`, en orden `09`→`17` (requieren outputs de stage 1).
-- Pipeline completo stage 2: `for i in 09 10 11 12 13 14 15 16 17; do uv run src/${i}_*.py; done`
+- **Dos documentos, sin más `.md`.** `README.md` es técnico (instalación, ejecución, estructura, entregables).
+  `EXPLICATIVO.md` es la única narrativa (problema, decisiones, resultados y limitaciones). Las reglas viven aquí.
+- **Una sola fuente de verdad numérica:** `resultados/<fase>/metricas.json` y los CSV de la fase. Ninguna cifra
+  entra en `EXPLICATIVO.md` si no es una clave de un `metricas.json` o un valor de un CSV enlazado.
+- **Sin historial ni iteraciones.** Se describe la versión vigente y se justifica; el historial está en Git.
+- **Referenciar, no copiar.** Si una tabla o figura existe en `resultados/`, en `EXPLICATIVO.md` va el enlace.
+- **Regla de tamaño.** Si una sección de `EXPLICATIVO.md` supera ~40 líneas, se recorta a objetivo, decisiones y
+  referencias.
 
-## Gotchas de ejecución
+## 2. Mantenimiento de `EXPLICATIVO.md`
 
-- Todos los scripts resuelven paths relativos al CWD → **correr desde la raíz del repo**, nunca desde `src/`.
-- `from utils import ...` funciona solo porque el directorio del script (`src/`) queda en `sys.path` al ejecutarlo como `uv run src/xx.py`. No lo conviertas a import de módulo ni muevas `utils.py` sin preservar eso.
-- Los scripts 03–08 leen `data/interim/queries.parquet` como directorio Hive-partitioned (`year=YYYY/week=WW`); `pl.read_parquet` sobre el dir funciona.
+- Cada fase cierra con: objetivo, qué se hizo, decisiones y por qué, resultados enlazados, verificaciones y qué
+  habilita.
+- Verificar que el archivo o la celda referenciados existen y hacen lo que dice el texto.
+- Reescribir la sección afectada, no anexar. Si una cifra no coincide con su `metricas.json`, corregir uno de los dos.
 
-## Datos y versionado
+## 3. Criterios de calidad de notebooks
 
-- `data/` se mantiene fuera de Git y debe existir localmente para ejecutar el pipeline; `models/**` y el código se versionan como archivos normales de Git.
-- Tras clonar, materializa los datos desde el almacenamiento externo documentado antes de ejecutar los scripts.
-- No commitear parquets intermedios redundantes ni acumular versiones regenerables.
+### 3.1 Explicación
+- Celda Markdown inicial: fase CRISP-DM, objetivo, entradas y salidas.
+- Markdown breve antes de cada bloque de código: qué hace, por qué y qué **tipo de datos** analiza.
+- Comentarios en español, breves. Sin códigos de decisión ni historial.
+- **Sin diccionarios ni listas de Python para texto descriptivo** (descripción de columnas, pasos, hallazgos): eso va
+  en Markdown, en tabla o viñetas.
 
-## Gotcha de codificación
+### 3.2 Celdas
+- Una celda = una intención (orientativo ≤ 20 líneas). La lógica reutilizable va a `src/`.
+- Parámetros, umbrales y semillas solo en `config.py`.
 
-- 6 CSVs raw (2024-04-29 → 2024-06-09) son Latin-1 con columnas en inglés. Reutilizar `utils.read_csv_safe`; no reimplementar lectura de raw.
+### 3.3 Salidas
+- Cada notebook escribe tablas y figuras en `resultados/<fase>/` con `guardar_tabla` y `guardar_figura` y termina con
+  `guardar_metricas(fase, M)`.
+- Ningún notebook genera `.md` ni reportes. Excepción: `mapa_brecha.html`, que es un entregable.
+- Un artefacto existe solo si `EXPLICATIVO.md` lo cita o si otro notebook lo lee.
 
-## Scripts stage 1 congelados
+### 3.4 Verificaciones
+- Divididas por tema (integridad, rangos, partición, fuga, coherencia con la fase anterior), cada una en su
+  subsección con un Markdown que explica qué comprueba y una celda corta de `assert` separados.
+- **Sin listas de tuplas** para armar tablas de verificación.
+- Un notebook que depende de otro verifica sus cifras compartidas con `leer_metricas(fase_anterior)`.
 
-- `src/01..08` son outputs de referencia congelados: **no cambies su comportamiento**. Sus errores legacy de ruff se toleran vía `[tool.ruff.lint.per-file-ignores]` en `pyproject.toml`.
+### 3.5 Reproducibilidad
+- Cada notebook empieza con `limpiar_salidas(fase, datos_que_regenera)` e imprime el tiempo por sección.
+- `01_eda` no escribe en `data/`. `02` produce `data/interim/`; `03`, `data/processed/`.
+- Re-ejecutar no debe cambiar ningún CSV ni `metricas.json`; solo cambian metadatos de notebooks y los IDs del HTML
+  de folium. Si cambia otra cosa, investigar antes de commitear.
+- No se usa pytest: la verificación son los `assert` de los notebooks y los `metricas.json`.
 
-## Scripts stage 2 (Data Preparation)
+## 4. Reglas duras del protocolo predictivo
 
-Scripts `09`→`17` implementan la preparación de datos (Section 7.3):
+- **Prueba de uso único.** `03` sortea `test_blocks.csv` con la semilla antes de cualquier modelo. `04` solo la lee
+  para descartar bloques. `05` evalúa la prueba una vez.
+- **Protocolo antes que resultados.** Cambios de técnica, predictores, grilla o regla de selección se declaran en
+  `config.py` y se commitean **antes** de volver a modelar.
+- **GTFS fuera del modelo.** `dist_trazado_m` y `gtfs_covered` (`config.CONTRASTE`) solo sirven de contraste.
+- **Sin fuga.** No crear variables con consultas de zonas vecinas. No imputar. Toda estimación (tasas, coeficientes,
+  hiperparámetros) ocurre dentro del pliegue de entrenamiento.
+- **Área.** Envolvente de la componente H3 contigua (k=1) de los orígenes válidos + 1 km. `DIST_MAX_M` solo decide
+  qué consultas cuentan.
+- **Validación.** `GroupKFold(5)` por `block_id` (H3 res 6), semilla 42, centro exógeno `config.CENTRO_REFERENCIA`.
+- **Nomenclatura.** Columnas de datos en inglés con sufijo de unidad (`query_count`, `population`, `dist_centro_km`).
 
-| Script | Subsection | Purpose |
-|--------|------------|---------|
-| `09_select_filter.py` | 7.3.1 | Apply inclusion/exclusion filters |
-| `10_clean_data.py` | 7.3.2 | Handle nulls, outliers, normalization |
-| `11_sessionize.py` | 7.3.3 | Group queries into user sessions |
-| `12_build_h3.py` | 7.3.4 | H3 tessellation (res 7, 8, 9) |
-| `13_gtfs_coverage.py` | 7.3.5 | Distance to nearest GTFS route |
-| `14_validate_municipios.py` | 7.3.6 | Municipality cross-validation |
-| `15_indicators_table.py` | 7.3.7 | Cell×week aggregated features |
-| `16_sensitivity_h3.py` | 7.3.8 | H3 resolution comparison |
-| `17_train_test_split.py` | 7.3.9 | Chronological train/test partition |
+## 5. Comandos
 
-Utilities:
-- `gtfs_download.py` — Download GTFS from Mobility Database (needs `MOBILITY_API_REFRESH_TOKEN`)
-- `run_update_pipeline.py` — Check for GTFS updates and regenerate coverage
-- `generate_manifest.py` — Create `data/processed/manifest.json`
+- Entorno: `uv sync` (Python 3.12, nunca pip) y `uv pip check`.
+- Lint: `uv run ruff check src config.py`.
+- Pipeline completo, desde la raíz y en orden:
+  `for nb in notebooks/0*.ipynb; do uv run jupyter nbconvert --to notebook --execute --inplace "$nb"; done`
+- Los notebooks se editan en el `.ipynb`, se ejecutan de punta a punta y se commitean con sus salidas.
+- Commits: uno resumido por cambio (`feat`/`fix`/`refactor`/`docs`/`chore`) en la rama de trabajo, y `git push`.
 
-Outputs locales: `data/processed/` → `indicators_table.parquet`, `train.parquet`, `test.parquet`, `manifest.json`
+## 6. Gotchas
 
-Los `prep_*.parquet` son salidas intermedias regenerables y se mantienen fuera
-del versionado por su tamaño; se generan al ejecutar los scripts 09→14.
+- La primera celda de cada notebook busca `pyproject.toml` hacia arriba y agrega la raíz a `sys.path`; no quitarla.
+- `from src.entorno import *` trae `config`, `pl`, `pd`, `np`, `plt`, la paleta y las funciones `guardar_*`.
+  `guardar_figura` no cierra la figura: el backend inline la muestra al final de la celda.
+- Algunos CSV son Latin-1 y el lote de 2024 trae columnas en inglés: leer con `src.lectura.leer_consultas`.
+- `data/` está fuera de Git y `data/raw/` es de solo lectura. `dist/` es un paquete de referencia de otro proyecto,
+  ignorado por Git.
 
-## Paquete trufi_ds
+## 7. Estructura
 
-El código nuevo vive en `src/trufi_ds/`:
-- `config.py` — Paths, parámetros (bbox, H3 resolution, umbrales)
-- `io.py` — Lectores/escritores, schemas, manifest
-- `stages/preparation/` — Imports de stage 2
+```
+├── README.md · EXPLICATIVO.md · AGENTS.md
+├── config.py            # parámetros, rutas y semilla (único lugar)
+├── src/                 # entorno, lectura, limpieza, eda, espacial, features, modelos, evaluacion
+├── notebooks/           # 01_eda · 02_preprocesamiento · 03_feature_engineering · 04_modelado · 05_evaluacion · 06_propuesta
+├── data/{raw,interim,processed}/
+└── resultados/<fase>/   # tablas, figuras/, metricas.json; 06_propuesta además los entregables
+```
 
-## Convenciones de pipeline y git
+## 8. Regla de cierre
 
-- Trabajo completado = **stage 2 data preparation** ✓. Próximo: stage 3 features.
-- Git: `main` = estable; commits con prefijo semántico (`feat`/`fix`/`data`/`docs`/`chore`); commitear datos por separado del código cuando el cambio lo justifique.
-- No editar `data/raw/` (solo lectura); flags/filtros documentados en `reports/01_data_understanding/README.md` §9 y `reports/02_data_preparation/README.md`.
+Un archivo existe solo si es un notebook del flujo; `config.py`, `README.md`, `EXPLICATIVO.md` o `AGENTS.md`; código
+de `src/` que algún notebook usa; `pyproject.toml`, `uv.lock` o `.python-version`; un dato en `data/`; o un artefacto
+de `resultados/` que `EXPLICATIVO.md` cita o que otro notebook lee. Antes de borrar, verificar con `grep -rn` en
+`notebooks/`, `src/` y `config.py` que nada lo lea.
