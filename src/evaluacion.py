@@ -71,7 +71,7 @@ def mapa_brecha(zonas: gpd.GeoDataFrame, prioritarias: list[str]) -> folium.Map:
     escala = cm.LinearColormap(["#c23b3b", "#f3c9c9", "#f4f4f1", "#b7d3f6", "#2a78d6"], vmin=-lim, vmax=lim,
                                caption="Brecha de Pearson (observado − esperado) / √esperado")
     centro = config.CENTRO_REFERENCIA
-    m = folium.Map(location=[centro["lat"], centro["lon"]], zoom_start=11, tiles="cartodbpositron")
+    m = folium.Map(location=[centro["lat"], centro["lon"]], zoom_start=11, tiles="openstreetmap")
     campos = ["h3_cell", "municipality", "population", "observed", "expected", "expected_week", "gap_pearson",
               "gtfs_covered"]
     alias = ["zona", "municipio", "población", "observado", "esperado", "esperado/semana", "brecha", "cubierta GTFS"]
