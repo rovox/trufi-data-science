@@ -1,0 +1,35 @@
+[project]
+name = "trufi-data-science"
+version = "1.0.0"
+description = "Consultas esperadas de Trufi App por zona H3 en el eje metropolitano de Cochabamba (CRISP-DM)"
+requires-python = ">=3.12"
+dependencies = [
+    "polars>=1.9",
+    "pyarrow>=17.0",
+    "pandas>=2.2",
+    "numpy>=2.0",
+    "scipy>=1.13",
+    "h3>=4.1",
+    "geopandas>=1.0",
+    "shapely>=2.0",
+    "pyogrio>=0.10",
+    "matplotlib>=3.9",
+    "folium>=0.17",
+    "scikit-learn>=1.5",
+    "statsmodels>=0.14",
+    "esda>=2.6",
+    "libpysal>=4.12",
+    "joblib>=1.4",
+    "jupyter>=1.1",
+    "ipykernel>=6.29",
+    "nbconvert>=7.16",
+]
+
+[dependency-groups]
+dev = ["ruff>=0.6"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.uv]
+package = false
